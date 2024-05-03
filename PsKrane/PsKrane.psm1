@@ -69,7 +69,7 @@ Class KraneProject {
     }
 }
 
-Class ModuleBuild : KraneProject {
+Class KraneModule : KraneProject {
     [String]$ModuleName
     [System.IO.FileInfo]$ModuleFile
     [System.IO.FileInfo]$ModuleDataFile
@@ -84,7 +84,7 @@ Class ModuleBuild : KraneProject {
 
     #Add option Overwrite
 
-    ModuleBuild([System.IO.DirectoryInfo]$Root){
+    KraneModule([System.IO.DirectoryInfo]$Root){
         #When the module Name is Not passed, we assume that a .Krane.psd1 file is already present.
         $this.KraneFile = [KraneFile]::New($Root)
         $this.ProjectType = [ProjectType]::Module
@@ -102,7 +102,7 @@ Class ModuleBuild : KraneProject {
         
     }
 
-    ModuleBuild([System.IO.DirectoryInfo]$Root, [String]$ModuleName) {
+    KraneModule([System.IO.DirectoryInfo]$Root, [String]$ModuleName) {
         #When the module Name is passed, we assume that the module is being created, and that there is not a .Krane.psd1 file present. yet.
         $this.KraneFile = [KraneFile]::New($Root)
         $this.ProjectType = [ProjectType]::Module
@@ -231,14 +231,14 @@ Class ModuleBuild : KraneProject {
 
 Class ModuleObfuscator {
     [String]$ModuleName
-    [ModuleBuild]$Module
+    [KraneModule]$Module
     [System.IO.DirectoryInfo]$Bin
     [System.IO.FileInfo]$BinaryModuleFile
     [System.IO.FileInfo]$ModuleDataFile
 
     Obfuscator() {}
 
-    SetModuleBuild([ModuleBuild]$Module) {
+    SetKraneModule([KraneModule]$Module) {
         $Module.ModuleDataFile.Refresh()
         if (!$Module.ModuleDataFile.Exists) {
             Write-Verbose "[BUILD][OBFUSCATE] Module data file Not found. Building module"
@@ -282,7 +282,7 @@ Class KraneFactory {
         switch ($ProjectType) {
             "Module" {
                 write-verbose "Creating root project of type Module $($Root.FullName)"
-                return [ModuleBuild]::New($Root)
+                return [KraneModule]::New($Root)
             }
             default {
                 Throw "Project type $ProjectType not supported"
@@ -294,23 +294,23 @@ Class KraneFactory {
 }
 
 Class NuSpecFile {
-    [ModuleBuild]$ModuleBuild
+    [KraneModule]$KraneModule
     [String]$Version
     [System.IO.DirectoryInfo]$ExportFolderPath
     [System.IO.FileInfo]$NuSpecFilePath
     hidden [String]$RawContent
 
-    NuspecFile([ModuleBuild]$ModuleBuild) {
-        $this.SetModuleBuild($ModuleBuild)
-        $this.ExportFolderPath = Join-Path -Path $this.ModuleBuild.Outputs -ChildPath "Nuget"
+    NuspecFile([KraneModule]$KraneModule) {
+        $this.SetKraneModule($KraneModule)
+        $this.ExportFolderPath = Join-Path -Path $this.KraneModule.Outputs -ChildPath "Nuget"
     }
 
-    SetModuleBuild([ModuleBuild]$ModuleBuild) {
-        $this.ModuleBuild = $ModuleBuild
+    SetKraneModule([KraneModule]$KraneModule) {
+        $this.KraneModule = $KraneModule
     }
 
     hidden [Void]Generate() {
-        $psd1Data = Import-PowerShellDataFile -Path $this.ModuleBuild.ModuleDataFile
+        $psd1Data = Import-PowerShellDataFile -Path $this.KraneModule.ModuleDataFile
         $NuSpecString = @"
 <?xml version="1.0" encoding="utf-8"?>
 <package>
@@ -333,7 +333,7 @@ Class NuSpecFile {
 "@
 
         
-        $Id = $this.ModuleBuild.ModuleName #0
+        $Id = $this.KraneModule.ModuleName #0
         $this.Version = $psd1Data.ModuleVersion #1
         $Authors = $psd1Data.Author #2
         $ProjectUri = $psd1Data.PrivateData.PsData.ProjectUri #3
@@ -347,8 +347,8 @@ Class NuSpecFile {
     [System.IO.FileInfo] CreateNuSpecFile() {
         $this.Generate()
 
-        $Modulefolder = Join-Path -Path $this.ModuleBuild.Outputs.FullName -ChildPath "Module"
-        $this.NuSpecFilePath = Join-Path -Path $Modulefolder -ChildPath ($this.ModuleBuild.ModuleName + ".nuspec")
+        $Modulefolder = Join-Path -Path $this.KraneModule.Outputs.FullName -ChildPath "Module"
+        $this.NuSpecFilePath = Join-Path -Path $Modulefolder -ChildPath ($this.KraneModule.ModuleName + ".nuspec")
         $this.RawContent | Out-File -FilePath $this.NuspecFilePath -Encoding utf8 -Force
         Return $this.NuspecFilePath
 
@@ -358,7 +358,7 @@ Class NuSpecFile {
         & nuget pack $this.NuSpecFilePath.FullName -OutputDirectory $this.ExportFolderPath -Version "1.0.0"
     }
 }
-Function New-KraneModuleBuild {
+Function New-KraneKraneModule {
     [cmdletBinding()]
     Param(
         [Parameter(Mandatory = $False, HelpMessage = "Root folder of the project. If not specified, it assumes it is located in a folder called 'Build' in the root of the project.")]
@@ -379,19 +379,19 @@ Function New-KraneModuleBuild {
     }
     Write-Verbose "[BUILD][START] Root project is : $($Root.FullName)"
 
-    #Creating the ModuleBuild (simple PSM1 + PSD1)
+    #Creating the KraneModule (simple PSM1 + PSD1)
     $VerbosePreference = 'Continue'
-    $ModuleBuild = [ModuleBuild]::New($Root, $ModuleName)
-    Return $ModuleBuild
+    $KraneModule = [KraneModule]::New($Root, $ModuleName)
+    Return $KraneModule
 }
 
 Function New-KraneNuspecFile {
     Param(
         [Parameter(Mandatory = $True)]
-        [ModuleBuild]$ModuleBuild
+        [KraneModule]$KraneModule
     )
 
-    $NuSpec = [NuSpecFile]::New($ModuleBuild)
+    $NuSpec = [NuSpecFile]::New($KraneModule)
     $NuSpec.CreateNuSpecFile()
     $NuSpec.CreateNugetFile()
 }
