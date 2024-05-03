@@ -438,36 +438,8 @@ Class NuSpecFile {
     }
 }
 
-# Private functions
-
 # Public functions
 
-Function New-KraneModuleBuild {
-    [cmdletBinding()]
-    Param(
-        [Parameter(Mandatory = $False, HelpMessage = "Root folder of the project. If not specified, it assumes it is located in a folder called 'Build' in the root of the project.")]
-        [System.IO.DirectoryInfo]$Root,
-        [Parameter(Mandatory = $true, HelpMessage = "Name of the module to build.")]
-        [String]$ModuleName
-    )
-
-    if (($Root.Exists -eq $false)) {
-        Throw "Root $($Root.FullName) folder not found"
-    }
-
-    # Retrieve parent folder
-    if (!$Root) {
-        
-        $Current = (Split-Path -Path $MyInvocation.MyCommand.Path)
-        $Root = ((Get-Item $Current).Parent).FullName
-    }
-    Write-Verbose "[BUILD][START] Root project is : $($Root.FullName)"
-
-    #Creating the KraneModule (simple PSM1 + PSD1)
-    $VerbosePreference = 'Continue'
-    $KraneModule = [KraneModule]::New($Root, $ModuleName)
-    Return $KraneModule
-}
 
 Function New-KraneProject {
     <#
