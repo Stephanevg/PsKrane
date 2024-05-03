@@ -1,20 +1,111 @@
-Class ModuleBuild {
+Enum ProjectType {
+    Module
+    Script
+}
+
+Class KraneFile {
+    #CraneFile is a class that represents the .krane.psd1 file that is used to store the configuration of the Krane project.
+    [System.IO.FileInfo]$Path
+    [System.Collections.Hashtable]$Data
+    [Bool]$IsPresent
+
+    KraneFile([System.IO.DirectoryInfo]$Root) {
+        $this.Path = Join-Path -Path $Root.FullName -ChildPath ".krane.psd1"
+        $this.IsPresent = $this.File.Exists
+        if(!$this.Path.Exists) {
+            $this.Data = @{}
+            return
+        }
+        $this.Data = Import-PowerShellDataFile -Path $This.Path.FullName
+    }
+
+    KraneFile([System.IO.FileInfo]$File) {
+        $this.Path = $File
+        $this.IsPresent = $this.Path.Exists
+        if(!$this.Path.Exists) {
+            $this.Data = @{}
+            return
+        }
+        $this.Data = Import-PowerShellDataFile -Path $File.FullName
+    }
+
+    [String]Get([String]$Key) {
+        return $this.Data.$Key
+    }
+
+    [Void]Set([String]$Key, [String]$Value) {
+        $this.Data.$Key = $Value
+    }
+
+    [Void]Save() {
+        Export-PowerShellDataFile -InputObject $this.Data -Path $this.File.FullName
+        $this.File.Refresh()
+        $this.IsPresent = $this.File.Exists
+    }
+
+    [void]Fetch() {
+        $this.Data = Import-PowerShellDataFile -Path $this.File.FullName
+        $this.File.Refresh()
+        $this.IsPresent = $this.File.Exists
+    }
+
+    [String]ToString() {
+        return "ProjectName:{0} ProjectType:{1}" -f $this.Get("Name"), $this.Get("ProjectType")
+    }
+
+}
+
+Class KraneProject {
+    [KraneFile]$KraneFile
+    [ProjectType]$ProjectType
+    [System.IO.DirectoryInfo]$Root
+
+    KraneProject() {}
+
+    KraneProject([System.IO.DirectoryInfo]$Root) {
+
+        $this.KraneFile = [KraneFile]::New($Root)
+        
+    }
+}
+
+Class ModuleBuild : KraneProject {
     [String]$ModuleName
     [System.IO.FileInfo]$ModuleFile
     [System.IO.FileInfo]$ModuleDataFile
-    [System.IO.DirectoryInfo]$Root
     [System.IO.DirectoryInfo]$Build
     [System.IO.DirectoryInfo]$Sources
     [System.IO.DirectoryInfo]$Tests
     [System.IO.DirectoryInfo]$Outputs
-    [System.IO.DirectoryInfo]$DestinationFolder
     [String[]] $Tags = @( 'PSEdition_Core', 'PSEdition_Desktop' )
     [String]$Description
     [String]$ProjectUri
+    Hidden [System.Collections.Hashtable]$ModuleData = @{}
 
     #Add option Overwrite
 
+    ModuleBuild([System.IO.DirectoryInfo]$Root){
+        #When the module Name is Not passed, we assume that a .Krane.psd1 file is already present.
+        $this.KraneFile = [KraneFile]::New($Root)
+        $this.ProjectType = [ProjectType]::Module
+        $this.Root = $Root
+        $this.Build = "$Root\Build"
+        $this.Sources = "$Root\Sources"
+        $this.Tests = "$Root\Tests"
+        $this.Outputs = "$Root\Outputs"
+
+        #get the module name from the krane file
+        $mName = $this.KraneFile.Get("Name")
+        $this.SetModuleName($mName)
+        $this.ProjectType = $this.KraneFile.Get("ProjectType")
+        $this.FetchModuleInfo()
+        
+    }
+
     ModuleBuild([System.IO.DirectoryInfo]$Root, [String]$ModuleName) {
+        #When the module Name is passed, we assume that the module is being created, and that there is not a .Krane.psd1 file present. yet.
+        $this.KraneFile = [KraneFile]::New($Root)
+        $this.ProjectType = [ProjectType]::Module
         $this.Root = $Root
         $this.Build = "$Root\Build"
         $this.Sources = "$Root\Sources"
@@ -24,7 +115,8 @@ Class ModuleBuild {
         if (($this.Build.Exists -eq $false) -or ($this.Sources.Exists -eq $false) -or ($this.Tests.Exists -eq $false)) {
             Throw "No Build, Sources or Tests folder found in $($This.Root)"
         }
-
+        $this.KraneFile.Set("ModuleName", $ModuleName)
+        $this.KraneFile.Set("ProjectType", "Module")
         $this.FetchModuleInfo()
     }
 
@@ -34,8 +126,15 @@ Class ModuleBuild {
             Throw "Module Name not provided."
         }
         
-        $this.SetModuleName($this.ModuleName)     
-        
+        $this.SetModuleName($this.ModuleName)
+
+        if ($this.ModuleDataFile.Exists) {
+            $this.ModuleData = Import-PowerShellDataFile -Path $this.ModuleDataFile.FullName
+            $this.Description = $this.ModuleData.Description
+            $this.ProjectUri = $this.ModuleData.PrivateData.PsData.ProjectUri
+            $this.Tags = $this.ModuleData.PrivateData.PsData.Tags
+        }
+       
         
     }
 
@@ -174,31 +273,24 @@ Class ModuleObfuscator {
     }
 }
 
-Function New-KraModuleBuild {
-    [cmdletBinding()]
-    Param(
-        [Parameter(Mandatory = $False, HelpMessage = "Root folder of the project. If not specified, it assumes it is located in a folder called 'Build' in the root of the project.")]
-        [System.IO.DirectoryInfo]$Root,
-        [Parameter(Mandatory = $true, HelpMessage = "Name of the module to build.")]
-        [String]$ModuleName
-    )
+Class KraneFactory {
+    static [KraneProject]GetProject([System.IO.FileInfo]$KraneFile) {
+        $KraneDocument = [KraneFile]::New($KraneFile)
+        $ProjectType = $KraneDocument.Get("ProjectType")
+        $Root = $KraneFile.Directory
 
-    if (($Root.Exists -eq $false)) {
-        Throw "Root $($Root.FullName) folder not found"
-    }
-
-    # Retrieve parent folder
-    if (!$Root) {
+        switch ($ProjectType) {
+            "Module" {
+                write-verbose "Creating root project of type Module $($Root.FullName)"
+                return [ModuleBuild]::New($Root)
+            }
+            default {
+                Throw "Project type $ProjectType not supported"
+            }
+        }
         
-        $Current = (Split-Path -Path $MyInvocation.MyCommand.Path)
-        $Root = ((Get-Item $Current).Parent).FullName
+        Throw "Project type $ProjectType not supported" #For some strange reason, having the throw in the switch statement does no suffice for the compiler...
     }
-    Write-Verbose "[BUILD][START] Root project is : $($Root.FullName)"
-
-    #Creating the ModuleBuild (simple PSM1 + PSD1)
-    $VerbosePreference = 'Continue'
-    $ModuleBuild = [ModuleBuild]::New($Root, $ModuleName)
-    Return $ModuleBuild
 }
 
 Class NuSpecFile {
@@ -266,8 +358,34 @@ Class NuSpecFile {
         & nuget pack $this.NuSpecFilePath.FullName -OutputDirectory $this.ExportFolderPath -Version "1.0.0"
     }
 }
+Function New-KraneModuleBuild {
+    [cmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $False, HelpMessage = "Root folder of the project. If not specified, it assumes it is located in a folder called 'Build' in the root of the project.")]
+        [System.IO.DirectoryInfo]$Root,
+        [Parameter(Mandatory = $true, HelpMessage = "Name of the module to build.")]
+        [String]$ModuleName
+    )
 
-Function New-KraNuspecFile {
+    if (($Root.Exists -eq $false)) {
+        Throw "Root $($Root.FullName) folder not found"
+    }
+
+    # Retrieve parent folder
+    if (!$Root) {
+        
+        $Current = (Split-Path -Path $MyInvocation.MyCommand.Path)
+        $Root = ((Get-Item $Current).Parent).FullName
+    }
+    Write-Verbose "[BUILD][START] Root project is : $($Root.FullName)"
+
+    #Creating the ModuleBuild (simple PSM1 + PSD1)
+    $VerbosePreference = 'Continue'
+    $ModuleBuild = [ModuleBuild]::New($Root, $ModuleName)
+    Return $ModuleBuild
+}
+
+Function New-KraneNuspecFile {
     Param(
         [Parameter(Mandatory = $True)]
         [ModuleBuild]$ModuleBuild
@@ -276,5 +394,35 @@ Function New-KraNuspecFile {
     $NuSpec = [NuSpecFile]::New($ModuleBuild)
     $NuSpec.CreateNuSpecFile()
     $NuSpec.CreateNugetFile()
+}
+
+Function Get-KraneProject {
+    [CmdletBinding()]
+    [OutputType([KraneProject])]
+    Param(
+        [Parameter(Mandatory = $False, HelpMessage = "Root folder of the project. If not specified, it assumes it is located in a folder called 'Build' in the root of the project.")]
+        [System.IO.DirectoryInfo]$Root
+    )
+
+    
+    # Retrieve parent folder
+    if (!$Root) {
+        #Stole this part from PSHTML
+        $EC = Get-Variable ExecutionContext -ValueOnly
+        $Root = $ec.SessionState.Path.CurrentLocation.Path 
+        write-Verbose "[Get-KraneProject] Root parameter was omitted. Using Current location: $Root"
+ 
+    }
+    ElseIf($Root.Exists -eq $false) {
+        Throw "Root $($Root.FullName) folder not found"
+    }
+
+    [System.IO.FileInfo]$KraneFile = Join-Path -Path $Root.FullName -ChildPath ".krane.psd1"
+    If (!($KraneFile.Exists)){
+        Throw "No .Krane file found in $($Root.FullName). Verify the path, or create a new project using New-KraneProject"
+    }
+    write-Verbose "[Get-KraneProject] Fetching Krane project from path: $Root"
+    Return [KraneFactory]::GetProject($KraneFile)
+    
 }
 
