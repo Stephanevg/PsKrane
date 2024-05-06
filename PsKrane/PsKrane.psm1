@@ -189,84 +189,115 @@ Class KraneModule : KraneProject {
 
     [void] BuildModule() {
         
+        Write-Verbose "[KraneModule][BuildModule] Start"
+        Write-Verbose "[KraneModule][BuildModule][PSM1] Starting PSM1 Operations $($this.ModuleName)"
         if ($this.ModuleFile.Exists) {
+            Write-Verbose "[KraneModule][BuildModule][PSM1]  Module file already exists. Deleting."
             $this.ModuleFile.Delete()
             $this.ModuleFile.Refresh()
         }
 
-        Write-Verbose "[BUILD][START]  Creating module file."
+        Write-Verbose "[KraneModule][BuildModule][PSM1]  (Re)creating file $($this.ModuleFile.FullName)"
         $Null = New-Item -Path $this.ModuleFile.FullName -ItemType "file" -Force
         
 
         $MainPSM1Contents = @()
+        Write-Verbose "[KraneModule][BuildModule][PSM1]  Searching for classes and functions"
 
-        [System.IO.DirectoryInfo]$ClassFolderPath = Join-Path -Path $this.Sources -ChildPath "Classes"
-        If ($ClassFolderPath.Exists) {
-            write-Verbose "[Classes] Folder Found"
-            $PublicClasses = Get-ChildItem -Path $ClassFolderPath.FullName -Filter *.ps1 | sort-object Name
-            $MainPSM1Contents += $PublicClasses
-
-        }
-
-        [System.IO.DirectoryInfo]$PrivateFunctionsFolderPath = Join-Path -Path $this.Sources -ChildPath "Functions/Private"
-        If ($ClassFolderPath.Exists) {
-            write-Verbose "[Functions] Private functions Found"
-            $Privatefunctions = Get-ChildItem -Path $PrivateFunctionsFolderPath.FullName -Filter *.ps1 | sort-object Name
-            $MainPSM1Contents += $Privatefunctions
-
-        }
-
-        $Publicfunctions = $null
-        [System.IO.DirectoryInfo]$PublicFunctionsFolderPath = Join-Path -Path $this.Sources -ChildPath "Functions/Public"
-        If ($ClassFolderPath.Exists) {
-            write-Verbose "[Functions] Public functions Found"
-            $Publicfunctions = Get-ChildItem -Path $PublicFunctionsFolderPath.FullName -Filter *.ps1 | sort-object Name
-            $MainPSM1Contents += $Publicfunctions
-
-        }
 
         [System.IO.FileInfo]$PreContentPath = Join-Path -Path $this.Sources.FullName -ChildPath "PreContent.ps1"
         If ($PrecontentPath.Exists) {
     
-            write-Verbose "[BUILD][Pre] Pre content Found. Adding to module file"
-            Get-Content -Path $PreContentPath.FullName | out-File -FilePath $this.ModuleFile.FullName -Encoding utf8 -Append
+            Write-Verbose "[KraneModule][BuildModule][PSM1] Precontent.ps1 file found. Adding to module file."
+            $MainPSM1Contents += $PreContentPath
 
         }
         else {
-            write-Verbose "[BUILD][Pre] No Pre content Found. Skipping."
+            Write-Verbose "[KraneModule][BuildModule][PSM1] No Precontent detected."
 
         }
 
+
+        [System.IO.DirectoryInfo]$ClassFolderPath = Join-Path -Path $this.Sources.FullName -ChildPath "Classes"
+        If ($ClassFolderPath.Exists) {
+            
+            $PublicClasses = Get-ChildItem -Path $ClassFolderPath.FullName -Filter *.ps1 | sort-object Name
+            if($PublicClasses){
+                write-Verbose "[KraneModule][BuildModule][PSM1] Classes Found. Importing..."
+                $MainPSM1Contents += $PublicClasses
+            }
+
+        }
+
+        [System.IO.DirectoryInfo]$PrivateFunctionsFolderPath = Join-Path -Path $this.Sources.FullName -ChildPath "Functions/Private"
+        If ($PrivateFunctionsFolderPath.Exists) {
+            $Privatefunctions = Get-ChildItem -Path $PrivateFunctionsFolderPath.FullName -Filter *.ps1 | sort-object Name
+
+            if ($Privatefunctions) {
+                write-Verbose "[KraneModule][BuildModule][PSM1] Private functions Found. Importing..."
+                $MainPSM1Contents += $Privatefunctions
+            }
+
+
+        }
+
+        $Publicfunctions = $null
+        [System.IO.DirectoryInfo]$PublicFunctionsFolderPath = Join-Path -Path $this.Sources.FullName -ChildPath "Functions/Public"
+        If ($PublicFunctionsFolderPath.Exists) {
+            $Publicfunctions = Get-ChildItem -Path $PublicFunctionsFolderPath.FullName -Filter *.ps1 | sort-object Name
+            
+            if ($Publicfunctions) {
+                write-Verbose "[KraneModule][BuildModule][PSM1] Public  functions Found. Importing..."
+                $MainPSM1Contents += $Publicfunctions
+            }
+
+        }
+
+        [System.IO.FileInfo]$PostContentPath = Join-Path -Path $this.Sources.FullName -ChildPath "postContent.ps1"
+        If ($PostContentPath.Exists) {
+            write-Verbose "[KraneModule][BuildModule][PSM1] Postcontent Found. Importing..."
+
+            $MainPSM1Contents += $PostContentPath
+        }
+        
+
         #Creating PSM1
-        Write-Verbose "[BUILD][START][MAIN PSM1] Building main PSM1"
+        
+        write-Verbose "[KraneModule][BuildModule][PSM1] Building PSM1 content"
         Foreach ($file in $MainPSM1Contents) {
+            write-Verbose "[KraneModule][BuildModule][PSM1]   Adding -> $($File.FullName)"
             Get-Content $File.FullName | out-File -FilePath $this.ModuleFile.FullName -Encoding utf8 -Append
     
         }
 
-        [System.IO.FileInfo]$PostContentPath = Join-Path -Path $this.Sources.FullName -ChildPath "postContent.ps1"
-
-        If ($PostContentPath.Exists) {
-            Write-verbose "[BUILD][START][POST] PostContent.ps1 file found. Adding to module file."
-
-            $file = Get-item $PostContentPath
-            Get-content $File.FullName | out-File -FilePath $this.ModuleFile.FullName -Encoding utf8 -Append
-        }
-        else {
-            Write-Verbose "[BUILD][START][POST] No post content file found!"
-        }
-
-        
-        Write-verbose "[BUILD][START][PSD1] Starding PSD1 actions. Adding functions to export"
+        Write-verbose "[KraneModule][BuildModule][PSD1] Starding PSD1 actions. Adding functions to export"
 
         if (!$this.ModuleDataFile.Exists) {
+            Write-verbose "[KraneModule][BuildModule][PSD1] Module Manifest not found. Creating one."
             New-ModuleManifest -Path $this.ModuleDataFile.FullName
         }
-        Update-ModuleManifest -Path $this.ModuleDataFile.FullName -FunctionsToExport $Publicfunctions.BaseName -Tags $This.Tags -RootModule $this.ModuleFile.Name -Description $this.Description -ProjectUri $this.ProjectUri
 
-        
+        $ManifestParams = @{}
+        $ManifestParams.Path = $this.ModuleDataFile.FullName
+        $ManifestParams.FunctionsToExport = $Publicfunctions.BaseName
+        $ManifestParams.Tags = $This.Tags
+        $ManifestParams.RootModule = $this.ModuleFile.Name
+        $ManifestParams.Description = $this.Description
+        $ManifestParams.ProjectUri = $this.ProjectUri
 
-        Write-verbose "[BUILD][END]End of Build Process"
+        Write-verbose "[KraneModule][BuildModule][PSD1] Writing Manifest settings:"
+
+        foreach ($ManifestSetting in $ManifestParams.GetEnumerator()) {
+            Write-Verbose "[KraneModule][BuildModule][PSD1][Setting] $($ManifestSetting.Key) -> $($ManifestSetting.Value)"
+        }
+
+        try{
+            Update-ModuleManifest @ManifestParams
+        }Catch{
+            Write-Error "[KraneModule][BuildModule][PSD1] Error updating module manifest. $_"
+        }
+
+        Write-Verbose "[KraneModule][BuildModule] End"
 
     }
     
@@ -303,6 +334,14 @@ Class KraneModule : KraneProject {
             $Null = New-Item -Path $this.Tests.FullName -ItemType "directory"
         }
 
+
+    }
+
+    [void]ReverseBuild(){
+        #ReverseBuild will take the module file and extract the content to the sources folder.
+        #It will also update the module manifest with the new functions.
+        Throw "Not implemented yet"
+        
 
     }
 
@@ -360,7 +399,7 @@ Class KraneFactory {
 
         switch ($ProjectType) {
             "Module" {
-                write-verbose "Creating root project of type Module $($Root.FullName)"
+                write-verbose "[KraneFactory][GetProject] Returning root project of type Module $($Root.FullName)"
                 return [KraneModule]::New($Root)
             }
             default {
@@ -389,7 +428,7 @@ Class NuSpecFile {
     }
 
     hidden [Void]Generate() {
-        $psd1Data = Import-PowerShellDataFile -Path $this.KraneModule.ModuleDataFile
+        $psd1Data = Import-PowerShellDataFile -Path $this.KraneModule.ModuleDataFile.FullName
         $NuSpecString = @"
 <?xml version="1.0" encoding="utf-8"?>
 <package>
@@ -404,7 +443,7 @@ Class NuSpecFile {
     <description>{4}</description>
     <releaseNotes>{5}</releaseNotes>
     <copyright>Copyright All rights reserved</copyright>
-    <tags>{5}</tags>
+    <tags>{6}</tags>
     <dependencies>
     </dependencies>
     </metadata>
@@ -419,7 +458,7 @@ Class NuSpecFile {
         $Description = $psd1Data.Description #4
         $ReleaseNotes = $psd1Data.releaseNotes #4
         $Tags = $psd1Data.PrivateData.PsData.tags -join "," #5
-        $Final = $NuSpecString -f $Id, $this.Version, $Authors, $ProjectUri, $Description, $Tags
+        $Final = $NuSpecString -f $Id, $this.Version, $Authors, $ProjectUri, $Description, $ReleaseNotes, $Tags
         $this.RawContent = $Final
     }
 
@@ -434,12 +473,90 @@ Class NuSpecFile {
     }
 
     CreateNugetFile() {
-        & nuget pack $this.NuSpecFilePath.FullName -OutputDirectory $this.ExportFolderPath -Version "1.0.0"
+        & nuget pack $this.NuSpecFilePath.FullName -OutputDirectory $this.ExportFolderPath
     }
 }
 
-# Public functions
+Class PsScriptFile {
+    [System.Io.FileInfo]$Path
+}
 
+Class BuildScript : PsScriptFile {
+    #Creates the build script that will be used to build the module and create the nuspec file
+    BuildScript([KraneModule]$KraneModule) {
+        
+        $this.Path = Join-Path -Path $KraneModule.Build.FullName -ChildPath "Build.Krane.ps1"
+    }
+
+    BuildScript([System.Io.DirectoryInfo]$Path) {
+        $this.Path = Join-Path -Path $Path.FullName -ChildPath "Build.Krane.ps1"
+    }
+
+    [void] CreateBuildScript() {
+        $Content = @'
+       
+# This script is used to invoke PsKrane and to build the module and create the nuspec file
+
+install-Module PsKrane -Repository PSGallery -Force
+import-Module PsKrane -Force
+
+$psr = $PSScriptRoot
+$Root = split-Path -Path $psr -Parent
+
+$KraneModule = Get-KraneProject -Root $Root
+$KraneModule.Description = "This module is a test module"
+$KraneModule.ProjectUri = "http://link.com"
+$KraneModule.BuildModule()
+
+New-KraneNuspecFile -KraneModule $KraneModule 
+'@
+
+        $Content | Out-File -FilePath $this.Path.FullName -Encoding utf8 -Force
+    }
+}
+
+Class TestScript : PsScriptFile {
+    #Creates the test script that will be used to test the module
+    TestScript([KraneModule]$KraneModule,[String]$TestName) {
+        if(!($TestName.Contains(".Tests.ps1"))){
+            $TestName = $TestName + ".Tests.ps1"
+        }
+        $this.Path = Join-Path -Path $KraneModule.Tests.FullName -ChildPath $TestName
+        
+    }
+
+    [void] CreateTestScript() {
+        if(Test-Path $this.Path.FullName){
+            Write-Verbose "[Krane][TestScript][CreateTestScript]Test script $($this.Path.FullName) already exists"
+            return
+        }
+        
+            #Create the test script
+        $Content = @'
+# Generated with love using PsKrane
+
+Import-Module PsKrane
+[System.IO.DirectoryInfo]$psroot = $PSScriptRoot
+
+$KraneProject = Get-KraneProject -Root $PsRoot.Parent
+
+Import-Module $($KraneProject.ModuleDataFile.FullName) -Force
+
+InModuleScope -ModuleName $KraneProject.ModuleName -ScriptBlock {
+    Describe "Should return Plop" {
+        it "Should return Plop" {
+            $result = Write-Plop
+            $result | Should -Be "Plop"
+        }
+    }
+}
+'@
+            Write-Verbose "[Krane][TestScript][CreateTestScript]Creating Test script at -> $($this.Path.FullName)"
+            $Content | Out-File -FilePath $this.Path.FullName -Encoding utf8 -Force
+        }
+}
+
+# Public functions
 
 Function New-KraneProject {
     <#
@@ -477,6 +594,7 @@ Function New-KraneProject {
         C:\USERS\STEPHANE\CODE\KRANETEST\PLOP
         │   .krane.json
         ├───Build
+        │   └───Build.Krane.ps1
         ├───Outputs
         ├───Sources
         │   └───Functions
@@ -514,7 +632,9 @@ Function New-KraneProject {
 
     if($Force){
         $KraneProject.CreateBaseStructure()
+        Add-KraneBuildScript -KraneModule $KraneProject
     }
+    
 
     Return $KraneProject
 
@@ -562,3 +682,69 @@ Function Get-KraneProject {
     
 }
 
+Function Add-KraneBuildScript {
+    <#
+    .SYNOPSIS
+        Adds the build script to the project
+    .DESCRIPTION
+        Adds the build script to the project. The build script is used to invoke PsKrane and to build the module and create the nuspec file
+    .NOTES
+        Author: Stephane van Gulick
+        version: 0.1
+    .LINK
+        http://github.com/stephanevg/PsKrane
+    .EXAMPLE
+        Add-BuildScript -Root C:\Users\Stephane\Code\KraneTest\wip
+        
+    #>
+    
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $False, ParameterSetName="Path")]
+        [System.IO.DirectoryInfo]$Path,
+
+        [Parameter(Mandatory = $False, ParameterSetName = "KraneModule")]
+        [KraneModule]$KraneModule
+    )
+
+    Switch($PSCmdlet.ParameterSetName){
+        "Path" {
+            $BuildScript = [BuildScript]::New($Path)
+            $BuildScript.CreateBuildScript()
+        }
+        "KraneModule" {
+            $BuildScript = [BuildScript]::New($KraneModule.Build)
+            $BuildScript.CreateBuildScript()
+        }
+    }
+
+}
+
+Function New-KraneTestScript {
+    <#
+    .SYNOPSIS
+        Creates a new test script
+    .DESCRIPTION
+        Creates a new test script in the Tests folder of the project
+    .NOTES
+    
+    .PARAMETER KraneModule
+        The KraneModule object that represents the project
+    .PARAMETER TestName
+        The name of the test script
+    .EXAMPLE    
+        New-KraneTestScript -KraneModule $KraneModule -TestName "Plop"
+        Creates a new test script called Plop.Tests.ps1 in the Tests folder of the project
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $True)]
+        [KraneModule]$KraneModule,
+
+        [Parameter(Mandatory = $True)]
+        [String]$TestName
+    )
+
+        $TestScript = [TestScript]::New($KraneModule, $TestName)
+        $TestScript.CreateTestScript()
+}

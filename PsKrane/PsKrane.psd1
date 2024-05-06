@@ -12,7 +12,7 @@
 RootModule = 'PsKrane.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.1.0'
+ModuleVersion = '0.2.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -30,7 +30,7 @@ CompanyName = 'District'
 Copyright = '(c) Stephane. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Opinionated module to manage powershell module builds'
+Description = 'Opinionated module to create and manage powershell modules and their build process'
 
 # Minimum version of the PowerShell engine required by this module
 PowerShellVersion = '5.1'
@@ -69,7 +69,7 @@ PowerShellVersion = '5.1'
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @("New-KraneNuspecFile", "New-KraneModuleBuild", "Get-KraneProject", "New-KraneProject")
+FunctionsToExport = @("New-KraneNuspecFile", "Get-KraneProject", "New-KraneProject", "Add-KraneBuildScript", "New-KraneTestScript")
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()
