@@ -92,6 +92,7 @@ Class KraneFile {
 
         $KraneFile.Set("Name", $Name)
         $KraneFile.Set("ProjectType", $Type)
+        $KraneFile.Set("ProjectVersion", "0.0.1")
         $KraneFile.Save()
 
         Return $KraneFile
@@ -508,7 +509,7 @@ $KraneModule.Description = "This module is a test module"
 $KraneModule.ProjectUri = "http://link.com"
 $KraneModule.BuildModule()
 
-New-KraneNuspecFile -KraneModule $KraneModule 
+New-KraneNugetFile -KraneModule $KraneModule -Force
 '@
 
         $Content | Out-File -FilePath $this.Path.FullName -Encoding utf8 -Force
@@ -566,9 +567,9 @@ Function New-KraneProject {
         Will create a base .krane.json project file. The project can be either a module or a script.
         Use -Force to create the base structure of the project.
     .NOTES
-        Information or caveats about the function e.g. 'This function is not supported in Linux'
+        Author: Stéphane vg
     .LINK
-        Specify a URI to a help page, this will show when Get-Help -Online is used.
+        https://github.com/Stephanevg/PsKrane
     .EXAMPLE
         New-KraneProject -Type Module -Path C:\Users\Stephane\Code\KraneTest\wip -Name "wip" -verbose
 
@@ -642,6 +643,21 @@ Function New-KraneProject {
 }
 
 Function New-KraneNuspecFile {
+    <#
+    .SYNOPSIS
+        Creates a new NuSpec file
+    .DESCRIPTION
+        Creates a new Nuspec File based on a PsKrane project.
+    .LINK
+        https://github.com/Stephanevg/PsKrane
+    .EXAMPLE
+        $KraneProject = Get-KraneProject -Root C:\Plop\
+        New-KraneNuspecFile -KraneProject $KraneProject
+        
+        Generates a .nuspec file in .\Outputs\Module\ folder of the KraneProject
+    #>
+    
+    
     Param(
         [Parameter(Mandatory = $True)]
         [KraneModule]$KraneModule
@@ -649,7 +665,6 @@ Function New-KraneNuspecFile {
 
     $NuSpec = [NuSpecFile]::New($KraneModule)
     $NuSpec.CreateNuSpecFile()
-    $NuSpec.CreateNugetFile()
 }
 
 Function Get-KraneProject {
@@ -747,4 +762,58 @@ Function New-KraneTestScript {
 
         $TestScript = [TestScript]::New($KraneModule, $TestName)
         $TestScript.CreateTestScript()
+}
+
+Function Invoke-KraneBuild {
+    [CmdletBinding()]
+    Param(
+        [KraneProject]$KraneProject
+    )
+    $BuildFile = Join-Path -Path $KraneProject.Build.FullName -ChildPath "Build.Krane.ps1"
+    if (!(Test-Path -Path $BuildFile)){
+        Throw "BuildFile $($BuildFile) not found. Please make sure it is there, and try again"
+    }
+
+    & $BuildFile
+}
+
+Function New-KraneNugetFile {
+    <#
+    .SYNOPSIS
+        Creates a new nuget package
+    .DESCRIPTION
+        Create a new nuget package based for a specific kraneproject (Nuspec must already have been generated)
+    .NOTES
+        Information or caveats about the function e.g. 'This function is not supported in Linux'
+    .LINK
+        https://github.com/Stephanevg/PsKrane
+    .EXAMPLE
+        $KraneProject = Get-KraneProject -Root C:\Plop\
+        New-KraneNugetFile -KraneProject $KraneProject -Force
+        
+        Generates a .nupkg file in .\Outputs\Nuget\ folder of the KraneProject.
+        -Force will create the nuspec file
+
+    .PARAMETER KraneModule
+        The KraneModule object that represents the project
+
+    .PARAMETER Force
+        Creates the nuspec file first
+    #>
+    
+    
+    Param(
+        [Parameter(Mandatory = $True)]
+        [KraneModule]$KraneModule,
+
+        [Switch]$Force
+    )
+
+    $NuSpec = [NuSpecFile]::New($KraneModule)
+    
+    if($Force){
+        $NuSpec.CreateNuSpecFile()
+    }
+
+    $NuSpec.CreateNugetFile()
 }
