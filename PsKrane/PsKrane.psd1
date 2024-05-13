@@ -30,7 +30,7 @@ CompanyName = 'District'
 Copyright = '(c) Stephane. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Opinionated module to create, manage and build powershell scripts and modules'
+Description = 'Opinionated module to scaffold, manage and help build standardized powershell modules implementing best pratcises out of the box with ease.'
 
 # Minimum version of the PowerShell engine required by this module
 PowerShellVersion = '5.1'
