@@ -1,4 +1,5 @@
 {
   "ProjectType": "Module",
-  "Name": "PsKrane"
+  "Name": "PsKrane",
+  "ProjectVersion": "0.4.0"
 }

@@ -104,12 +104,14 @@ Class KraneProject {
     [KraneFile]$KraneFile
     [ProjectType]$ProjectType
     [System.IO.DirectoryInfo]$Root
+    [String]$ProjectVersion
 
     KraneProject() {}
 
     KraneProject([System.IO.DirectoryInfo]$Root) {
 
         $this.KraneFile = [KraneFile]::New($Root)
+        $this.ProjectVersion = $this.KraneFile.Get("ProjectVersion")
         
     }
 }
@@ -285,6 +287,7 @@ Class KraneModule : KraneProject {
         $ManifestParams.RootModule = $this.ModuleFile.Name
         $ManifestParams.Description = $this.Description
         $ManifestParams.ProjectUri = $this.ProjectUri
+        $ManifestParams.ModuleVersion = $this.ProjectVersion
 
         Write-verbose "[KraneModule][BuildModule][PSD1] Writing Manifest settings:"
 
@@ -346,6 +349,23 @@ Class KraneModule : KraneProject {
 
     }
 
+    [string]GetProjectVersion() {
+        return $this.KraneFile.Get("ProjectVersion")
+    }
+
+    Fetch() {
+        if ($this.Build.Exists){
+
+            $e = Import-PowerShellDataFile -Path $this.Build.FullName
+            $this.ProjectVersion = $this.setProjectVersion($e.ModuleVersion)
+        }
+    }
+
+    hidden [void]SetProjectVersion($Version) {
+
+        $this.KraneFile.Set("ProjectVersion", $Version)
+        $this.KraneFile.Save()
+    }
 }
 
 Class ModuleObfuscator {
@@ -401,7 +421,9 @@ Class KraneFactory {
         switch ($ProjectType) {
             "Module" {
                 write-verbose "[KraneFactory][GetProject] Returning root project of type Module $($Root.FullName)"
-                return [KraneModule]::New($Root)
+                $KM = [KraneModule]::New($Root)
+                $KM.ProjectVersion = $KraneDocument.Get("ProjectVersion")
+                return $KM
             }
             default {
                 Throw "Project type $ProjectType not supported"
