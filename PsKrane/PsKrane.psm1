@@ -127,6 +127,7 @@ Class KraneModule : KraneProject {
     [String[]] $Tags = @( 'PSEdition_Core', 'PSEdition_Desktop' )
     [String]$Description
     [String]$ProjectUri
+    [Bool]$IsGitInitialized
     Hidden [System.Collections.Hashtable]$ModuleData = @{}
 
     #Add option Overwrite
@@ -148,6 +149,7 @@ Class KraneModule : KraneProject {
         $this.SetModuleName($mName)
         $this.ProjectType = $this.KraneFile.Get("ProjectType")
         $this.FetchModuleInfo()
+        $this.FetchGitInitStatus()
         
     }
 
@@ -170,6 +172,7 @@ Class KraneModule : KraneProject {
         #>
 
         $this.FetchModuleInfo()
+        $this.FetchGitInitStatus()
     }
 
     hidden [void] FetchModuleInfo() {
@@ -365,6 +368,11 @@ Class KraneModule : KraneProject {
 
         $this.KraneFile.Set("ProjectVersion", $Version)
         $this.KraneFile.Save()
+    }
+
+    [Void] FetchGitInitStatus(){
+        [System.IO.DirectoryInfo]$GitFolderpath = join-Path -Path $this.Root.FullName -ChildPath ".git\"
+        $this.IsGitInitialized = $GitFolderpath.Exists
     }
 }
 
@@ -580,6 +588,23 @@ InModuleScope -ModuleName $KraneProject.ModuleName -ScriptBlock {
 }
 
 # Public functions
+
+Function Get-KraneProjectVersion {
+    <#
+    .SYNOPSIS
+        Retrieves the version of the Krane project
+    .DESCRIPTION
+        Retrieves the version of the Krane project
+    .NOTES
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $True)]
+        [KraneProject]$KraneProject
+    )
+
+    Return $KraneProject.KraneFile.Get("ProjectVersion")
+}
 
 Function New-KraneProject {
     <#
