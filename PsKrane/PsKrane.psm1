@@ -587,6 +587,93 @@ InModuleScope -ModuleName $KraneProject.ModuleName -ScriptBlock {
         }
 }
 
+Class GitHelper {
+    [System.io.FileInfo]$Git
+    GitHelper() {
+        $GitCommand = Get-Command -Name "git"
+        if ($null -eq $GitCommand) {
+            Throw "Git not found. Please install git and make sure it is in the PATH"
+        }
+        Write-Verbose "[GitHelper] git command found at $($GitCommand.Source)"
+        $this.Git = $GitCommand.Source
+    }
+
+    GitTag([string]$Tag) {
+
+        try{
+            Write-Verbose "[GitHelper][GitTag] tagging with value -> $tag"
+            #& $this.Git.FullName tag -a $tag -m $tag
+            $strOutput = & $this.Git.FullName tag -a $tag -m $tag 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to write tag: $strOutput"
+            }
+        }catch{
+            throw "Error creating tag $tag. $_"
+        }
+    }
+
+    GitTag([string]$TagAnnotation,[String]$TagMessage) {
+
+        try {
+            Write-Verbose "[GitHelper][GitTag] tagging with anonotation -> $TagAnnotation and message $TagMessage"
+            $strOutput = & $this.Git.FullName tag -a $TagAnnotation -m $TagMessage 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to write tag: $strOutput"
+            }
+        }
+        catch {
+            throw "Error creating tag with annotation : $TagAnnotation and message: $TagMessage. error -> $_"
+        }
+    }
+
+    GitCommit([string]$Message) {
+        try{
+            
+            Write-Verbose "[GitHelper][GitCommit] commit with message -> $Message"
+            $strOutput = & $this.Git.FullName commit -m $Message 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to commit: $strOutput"
+            }
+        }catch{
+            throw "Error creating commit. $_"
+        }
+    }
+
+    GitAdd([string]$Path) {
+        try{
+            & $this.Git.FullName add $Path
+        }catch{
+            throw "Error adding $Path to git. $_"
+        }
+    }
+
+    GitPushTags() {
+        try{
+            #& $this.Git.FullName push --tags
+            Write-Verbose "[GitHelper][GitPushTags] pushing tags"
+            $strOutput = & $this.Git.FullName push --tags 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to push tags: $strOutput"
+            }
+        }catch{
+            throw "Error pushing tags to git. $_"
+        }
+    }
+
+    GitPushWithTags(){
+        try{
+            Write-Verbose "[GitHelper][GitPushWithTags] pushing with tags"
+            $strOutput = & $this.Git.FullName push --follow-tags 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to push with tags: $strOutput"
+            }
+        }catch{
+            throw "Error pushing with tags to git. $_"
+        }
+    
+    }
+}
+
 # Public functions
 
 Function Get-KraneProjectVersion {
@@ -863,4 +950,37 @@ Function New-KraneNugetFile {
     }
 
     $NuSpec.CreateNugetFile()
+}
+
+Function Invoke-KraneGitCommand {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [KraneProject]$KraneProject,
+
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("tag", "PushWithTags")]
+        [String]$GitAction,
+
+        [String]$Argument
+
+
+    )
+
+    $GitHelper = [GitHelper]::New()
+
+    switch($GitAction){
+        "tag" {
+            if(!($Argument)){
+                $Argument = "v{0}" -f $KraneProject.ProjectVersion
+            }
+            Write-Verbose "[Invoke-KraneGitCommand] Invokeking Git action $GitAction with argument $Argument"
+            $GitHelper.GitTag($Argument)
+        }
+        "PushWithTags" {
+            Write-Verbose "[Invoke-KraneGitCommand] Invokeking Git action $GitAction"
+            $GitHelper.GitPushWithTags()
+        }
+    }
+    
 }
