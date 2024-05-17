@@ -10,7 +10,7 @@ It allows to scaffold, build, and publish your powershell sripts and modules all
 
 PsKrane **standardize and simplifies** the steps a powershell developer has to follow for the creation of powershell modules and scripts.
 
-It has been developed to with Continuous integration & Continous deployment (CICD) in mind. Pskrane unifies the experience from the developer's laptop, all the way accross multiple different pipeling (CI/CD) tools.
+It has been developed with Continuous integration & Continous deployment (CICD) in mind. Pskrane unifies the experience from the developer's laptop, all the way accross multiple different pipeling (CI/CD) tools.
 
 # Dependencies
 
