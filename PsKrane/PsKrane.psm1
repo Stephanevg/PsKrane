@@ -347,6 +347,10 @@ Class KraneModule : KraneProject {
     [void]ReverseBuild(){
         #ReverseBuild will take the module file and extract the content to the sources folder.
         #It will also update the module manifest with the new functions.
+
+        $PublicFunctionNames = $this.ModuleData['FunctionsToExport']
+
+
         Throw "Not implemented yet"
         
 
@@ -674,6 +678,59 @@ Class GitHelper {
     }
 }
 
+Class PsModule  {
+    [system.io.FileInfo]$Path
+    [bool] $IsPresent
+    $Classes
+    $functions
+    PsModule([System.IO.FileInfo]$p) {
+        $this.Path = $p
+        if($p.Exists){
+            $this.IsPresent = $true
+            $this.GetAstClasses($p)
+            $this.GetASTFunctions($p)
+        }else{
+            $this.IsPresent = $false
+        }
+    }
+
+    GetAstClasses([System.IO.FileInfo]$p) {
+
+            Write-Verbose "Current file $p"
+            If ( $P.Extension -eq '.psm1') {
+                Write-Verbose "Current file $($p.FullNAme) is  PSM1 file..."
+                $Raw = [System.Management.Automation.Language.Parser]::ParseFile($p.FullName, [ref]$null, [ref]$Null)
+                $AST = $Raw.FindAll( { $args[0] -is [System.Management.Automation.Language.TypeDefinitionAst] }, $true)
+
+                ## If AST Count -gt 1 we need to retourn each one of them separatly
+                $this.Classes = $AST
+            }
+            Else {
+                Write-Verbose "Current file $($p.FullName) is not a PSM1 file..."
+            }
+            
+        
+    }
+
+
+    GetASTFunctions([System.IO.FileInfo]$Path) {
+
+    
+        $RawFunctions = $null
+        $ParsedFile = [System.Management.Automation.Language.Parser]::ParseFile($Path.FullName, [ref]$null, [ref]$Null)
+        $RawAstDocument = $ParsedFile.FindAll({ $args[0] -is [System.Management.Automation.Language.Ast] }, $true)
+
+        If ( $RawASTDocument.Count -gt 0 ) {
+
+            ## source: https://stackoverflow.com/questions/45929043/get-all-functions-in-a-powershell-script/45929412
+            $RawFunctions = $RawASTDocument.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $($args[0].parent) -isnot [System.Management.Automation.Language.FunctionMemberAst] })
+        }
+
+        $This.Functions = $RawFunctions
+    }
+
+}
+
 # Public functions
 
 Function Get-KraneProjectVersion {
@@ -984,3 +1041,5 @@ Function Invoke-KraneGitCommand {
     }
     
 }
+
+#Ffrom PsClassUtils
