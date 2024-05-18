@@ -128,6 +128,7 @@ Class KraneModule : KraneProject {
     [String]$Description
     [String]$ProjectUri
     [Bool]$IsGitInitialized
+    [psModule]$PsModule
     Hidden [System.Collections.Hashtable]$ModuleData = @{}
 
     #Add option Overwrite
@@ -189,7 +190,8 @@ Class KraneModule : KraneProject {
             $this.ProjectUri = $this.ModuleData.PrivateData.PsData.ProjectUri
             $this.Tags = $this.ModuleData.PrivateData.PsData.Tags
         }
-       
+        
+        $this.PsModule = [PsModule]::New($this.ModuleFile.FullName)
         
     }
 
@@ -346,13 +348,9 @@ Class KraneModule : KraneProject {
 
     [void]ReverseBuild(){
         #ReverseBuild will take the module file and extract the content to the sources folder.
-        #It will also update the module manifest with the new functions.
+    
 
-        $PublicFunctionNames = $this.ModuleData['FunctionsToExport']
-
-
-        Throw "Not implemented yet"
-        
+        $this.PsModule.ReverseBuild($this.Sources.FullName)
 
     }
 
@@ -678,36 +676,74 @@ Class GitHelper {
     }
 }
 
-Class PsModule  {
-    [system.io.FileInfo]$Path
+
+Class PsModule {
+    [String]$ModuleName
+    [System.IO.FileInfo]$ModuleFile
+    [System.IO.FileInfo]$ModuleDataFile
     [bool] $IsPresent
-    $Classes
-    $functions
-    PsModule([System.IO.FileInfo]$p) {
-        $this.Path = $p
-        if($p.Exists){
+    [System.Collections.ArrayList]$Classes = [System.Collections.ArrayList]::New()
+    [System.Collections.ArrayList] $functions = [System.Collections.ArrayList]::New()
+    Hidden [System.Collections.Hashtable]$ModuleData = @{}
+
+
+    PsModule([System.IO.FileInfo]$Path) {
+        if ($Path.Extension -ne '.psm1') {
+            throw "Invalid file type $($Path.Extension) for module file $($Path.FullName)"
+        }
+        $this.ModuleFile = $Path
+
+        $PsdFileName = $Path.FullName.Replace('.psm1', '.psd1')
+        $this.ModuleDataFile = $PsdFileName
+        if ($this.ModuleDataFile.Exists) {
+            Write-Verbose "[PsModule] PSD1 file detected -> $($this.ModuleDataFile.FullName)"
+            $this.ModuleData = Import-PowerShellDataFile -Path $this.ModuleDataFile.FullName
+
+        }
+        else {
+            Write-Verbose "[PsModule] No PSD1 file found for $($this.ModuleDataFile.FullName)"
+        }
+
+        if ($Path.Exists) {
+            Write-Verbose "[PsModule] PSM1 file detected -> $($Path.FullName)"
             $this.IsPresent = $true
-            $this.GetAstClasses($p)
-            $this.GetASTFunctions($p)
-        }else{
+            $this.GetAstClasses($Path)
+            $this.GetASTFunctions($Path)
+
+            if ($this.ModuleData.functionstoexport) {
+                Write-Verbose "[PsModule] Setting identifying functions scope"
+                foreach ($func in $this.functions) {
+                    if ($func.Name -in $this.ModuleData.FunctionsToExport) {
+                        $func.IsPrivate = $False
+                        Write-Verbose "[PsModule] $($func.Name) -> IsPublic"
+                    }
+                    else {
+                        $func.IsPrivate = $True
+                        Write-Verbose "[PsModule] $($func.Name) -> IsPrivate"
+                    }
+                }
+                
+            }
+        }
+        else {
             $this.IsPresent = $false
         }
+        
     }
 
     GetAstClasses([System.IO.FileInfo]$p) {
 
-            Write-Verbose "Current file $p"
-            If ( $P.Extension -eq '.psm1') {
-                Write-Verbose "Current file $($p.FullNAme) is  PSM1 file..."
-                $Raw = [System.Management.Automation.Language.Parser]::ParseFile($p.FullName, [ref]$null, [ref]$Null)
-                $AST = $Raw.FindAll( { $args[0] -is [System.Management.Automation.Language.TypeDefinitionAst] }, $true)
+        Write-Verbose "[PsModule][GetAstClasses] Fetching classes from $($p.FullName)"
+        If ( $P.Exists) {
+            $Raw = [System.Management.Automation.Language.Parser]::ParseFile($p.FullName, [ref]$null, [ref]$Null)
+            $ASTClasses = $Raw.FindAll( { $args[0] -is [System.Management.Automation.Language.TypeDefinitionAst] }, $true)
 
-                ## If AST Count -gt 1 we need to retourn each one of them separatly
-                $this.Classes = $AST
+            foreach($ASTClass in $ASTClasses){
+
+                $null = $this.Classes.Add($ASTClass)
             }
-            Else {
-                Write-Verbose "Current file $($p.FullName) is not a PSM1 file..."
-            }
+        }
+        
             
         
     }
@@ -715,7 +751,7 @@ Class PsModule  {
 
     GetASTFunctions([System.IO.FileInfo]$Path) {
 
-    
+        Write-Verbose "[PsModule][GetAstFunctions] Fetching functions from $($Path.FullName)"
         $RawFunctions = $null
         $ParsedFile = [System.Management.Automation.Language.Parser]::ParseFile($Path.FullName, [ref]$null, [ref]$Null)
         $RawAstDocument = $ParsedFile.FindAll({ $args[0] -is [System.Management.Automation.Language.Ast] }, $true)
@@ -725,10 +761,77 @@ Class PsModule  {
             ## source: https://stackoverflow.com/questions/45929043/get-all-functions-in-a-powershell-script/45929412
             $RawFunctions = $RawASTDocument.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $($args[0].parent) -isnot [System.Management.Automation.Language.FunctionMemberAst] })
         }
-
-        $This.Functions = $RawFunctions
+        foreach ($RawFunction in $RawFunctions) {
+            $Func = [PsFunction]::New($RawFunction, $false)
+            $null = $This.Functions.Add($Func)
+        }
+        
     }
 
+    [Object[]]GetClasses() {
+        return $this.Classes
+    }
+
+    [Object[]]GetFunctions() {
+        return $this.Functions
+    }
+
+
+    ReverseBuild([System.IO.DirectoryInfo]$ExportFolderPath){
+        #This method will take the module file and extract the content to the sources folder and put the functions in the right folder.
+        #It is recommended to export to a folder called 'Sources' as other internal Krane functions rely on this folder structure.
+
+        [System.IO.DirectoryInfo]$PrivatePath = Join-Path -Path $ExportFolderPath.FullName -ChildPath "Functions\Private"
+        [System.IO.DirectoryInfo]$PublicPath = Join-Path -Path $ExportFolderPath.FullName -ChildPath "Functions\Public"
+        [System.IO.DirectoryInfo]$ClassesFolder = Join-Path -Path $ExportFolderPath.FullName -ChildPath "Classes"
+
+        if($PrivatePath.Exists -eq $false){
+            $null = New-Item -Path $PrivatePath.FullName -ItemType "directory" -Force
+        }
+        if ($PublicPath.Exists -eq $false) {
+            $null = New-Item -Path $PublicPath.FullName -ItemType "directory" -Force
+        }
+        if($ClassesFolder.Exists -eq $false){
+            $null = New-Item -Path $ClassesFolder.FullName -ItemType "directory" -Force
+        }
+
+        foreach($funct in $this.functions){
+            $FileName = $funct.Name + ".ps1"
+            if($funct.IsPrivate){
+                $FullExportPath = Join-Path -Path $PrivatePath.FullName -ChildPath $FileName
+                $funct.RawAst.Extent.Text | Out-File -FilePath $FullExportPath -Encoding utf8 -Force
+            }
+            else{
+                $FullExportPath = Join-Path -Path $PublicPath.FullName -ChildPath $FileName
+                $funct.RawAst.Extent.Text | Out-File -FilePath $FullExportPath -Encoding utf8 -Force
+            }
+        }
+
+        foreach($class in $this.Classes){
+            $FileName = $class.Name + ".ps1"
+            $FullExportPath = Join-Path -Path $ClassesFolder.FullName -ChildPath $FileName
+            $Class.Extent.Text | Out-File -FilePath $FullExportPath -Encoding utf8 -Force
+        }
+    }
+
+}
+
+Class PsFunction {
+    $IsPrivate
+    $Name
+    $HasCommentBasedHelp
+    $CommentBasedHelp
+    [System.Io.FileInfo]$Path
+    hidden $RawAst
+
+    PsFunction([System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst, [bool]$IsPrivate) {
+        Write-Verbose "[PsFunction] Creating function: $($FunctionAst.Name) IsPrivate: $IsPrivate"
+        $this.RawAst = $FunctionAst
+        $this.Name = $FunctionAst.Name
+        $this.IsPrivate = $IsPrivate
+        $this.HasCommentBasedHelp = $FunctionAst.GetHelpContent().Length -gt 0
+        $this.CommentBasedHelp = $FunctionAst.GetHelpContent()
+    }
 }
 
 # Public functions
@@ -793,9 +896,15 @@ Function New-KraneProject {
         │       ├───Private
         │       └───Public
         └───Tests
-
+    .PARAMETER Type
+            Type of project to create. Can be either 'Module' or 'Script'
+    .PARAMETER Name
+            Name of the project
+    .PARAMETER Path
+            Root folder of the project
+    .PARAMETER Force    
+            Switch to create the base structure of the project
     #>
-    
     
     [cmdletBinding()]
     [OutputType([KraneProject])]
