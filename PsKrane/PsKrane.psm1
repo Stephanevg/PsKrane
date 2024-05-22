@@ -506,6 +506,9 @@ Class NuSpecFile {
     }
 
     CreateNugetFile() {
+        if(!($this.ExportFolderPath.Exists)){
+            $this.ExportFolderPath.Create()
+        }
         & nuget pack $this.NuSpecFilePath.FullName -OutputDirectory $this.ExportFolderPath
     }
 }
@@ -1125,7 +1128,7 @@ Function Invoke-KraneGitCommand {
         [KraneProject]$KraneProject,
 
         [Parameter(Mandatory=$true)]
-        [ValidateSet("tag", "PushWithTags")]
+        [ValidateSet("tag", "PushTags","PushWithTags")]
         [String]$GitAction,
 
         [String]$Argument
@@ -1140,12 +1143,16 @@ Function Invoke-KraneGitCommand {
             if(!($Argument)){
                 $Argument = "v{0}" -f $KraneProject.ProjectVersion
             }
-            Write-Verbose "[Invoke-KraneGitCommand] Invokeking Git action $GitAction with argument $Argument"
+            Write-Verbose "[Invoke-KraneGitCommand] Invoking Git action $GitAction with argument $Argument"
             $GitHelper.GitTag($Argument)
         }
         "PushWithTags" {
-            Write-Verbose "[Invoke-KraneGitCommand] Invokeking Git action $GitAction"
+            Write-Verbose "[Invoke-KraneGitCommand] Invoking Git action $GitAction"
             $GitHelper.GitPushWithTags()
+        }
+        "PushTags" {
+            Write-Verbose "[Invoke-KraneGitCommand] Invoking Git action $GitAction"
+            $GitHelper.GitPushTags()
         }
     }
     
