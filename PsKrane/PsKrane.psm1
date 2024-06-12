@@ -839,6 +839,20 @@ Class PsFunction {
     }
 }
 
+Class TestHelper {
+    [object]$TestData
+
+    TestHelper(){}
+
+    [object] RunPesterTests([String[]]$Path) {
+        #Accepts eithern a string or an array of strings that should be the path to the test script(s) or the folder containing test scripts.
+        if([string]::IsNullOrEmpty($Path)){
+            throw "No path provided for tests"
+        }
+        $this.TestData = Invoke-Pester -Path $Path -PassThru
+        return $this.TestData
+    }
+}
 # Public functions
 
 Function Get-KraneProjectVersion {
