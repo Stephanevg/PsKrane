@@ -653,15 +653,17 @@ Class GitHelper {
     }
 
     GitPushTags() {
+        $strOutput = ""
         try{
             #& $this.Git.FullName push --tags
             Write-Verbose "[GitHelper][GitPushTags] pushing tags"
-            $strOutput = & $this.Git.FullName push --tags 2>&1
+            $strOutput = & $this.Git.FullName push --tags -q 2>&1
             if ($LASTEXITCODE -ne 0) {
-                throw "Failed to push tags: $strOutput"
+                throw "LastExitcode: $LASTEXITCODE . Failed to push tags. Received output: $strOutput"
             }
         }catch{
-            throw "Error pushing tags to git. $_"
+            
+            throw "Error pushing tags to git. output: $($strOutput). Error content: $_"
         }
     }
 
