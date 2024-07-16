@@ -134,7 +134,7 @@ Class KraneModule : KraneProject {
     #Add option Overwrite
 
     KraneModule([System.IO.DirectoryInfo]$Root){
-        #When the module Name is Not passed, we assume that a .Krane.json file is already present.
+        #When the module Name is Not passed, we assume that a .Krane.json file is already present at the root.
         $this.KraneFile = [KraneFile]::New($Root)
         $this.ProjectType = [ProjectType]::Module
         $this.Root = $Root
@@ -157,6 +157,7 @@ Class KraneModule : KraneProject {
     KraneModule([System.IO.DirectoryInfo]$Root, [String]$ModuleName) {
         #When the module Name is passed, we assume that the module is being created, and that there is not a .Krane.json file present. yet.
         #$this.KraneFile = [KraneFile]::New($Root)
+        $Root = Join-Path -Path $Root -ChildPath $ModuleName
         $This.KraneFile = [KraneFile]::Create($Root, $ModuleName, [ProjectType]::Module)
         $this.ProjectType = [ProjectType]::Module
         $this.Root = $Root
@@ -165,6 +166,7 @@ Class KraneModule : KraneProject {
         $this.Tests = "$Root\Tests"
         $this.Outputs = "$Root\Outputs"
         $this.ModuleName = $ModuleName
+        $this.ProjectVersion = $this.GetProjectVersion()
         <#
         
         if (($this.Build.Exists -eq $false) -or ($this.Sources.Exists -eq $false) -or ($this.Tests.Exists -eq $false)) {
@@ -839,20 +841,50 @@ Class PsFunction {
     }
 }
 
-Class TestHelper {
+Class TestHelper {}
+
+Class PesterTestHelper : TestHelper {
     [object]$TestData
+    [String[]]$Path
+    [String]$Version = "Latest"
 
-    TestHelper(){}
+    PesterTestHelper() {}
 
-    [object] RunPesterTests([String[]]$Path) {
+    [void] InvokeTests([String[]]$Path) {
         #Accepts eithern a string or an array of strings that should be the path to the test script(s) or the folder containing test scripts.
         if([string]::IsNullOrEmpty($Path)){
             throw "No path provided for tests"
         }
-        $this.TestData = Invoke-Pester -Path $Path -PassThru
-        return $this.TestData
+
+        if($this.Version -eq 'Latest'){
+            Import-Module -Name Pester -Force
+        }else{
+            Import-Module -Name Pester -RequiredVersion $this.Version -Force -Global   
+        }
+
+
+        $this.Path = $Path
+        $this.TestData = Invoke-Pester -Path $Path -PassThru -Show None
+    }
+
+    [void] SetVersion([String]$Version){
+        $this.Version = $Version
+    }
+
+    [String] ToString(){
+        return "Result: {0} PassedCount: {1} FailedCount: {2}" -f $this.TestData.Result,$this.TestData.PassedCount,$this.TestData.FailedCount
+    
+    }
+
+    [object] GetFailedTests(){
+        return $this.TestData.Failed
+    }
+
+    [object] GetPassedTests(){
+        return $this.TestData.Passed
     }
 }
+
 # Public functions
 
 Function Get-KraneProjectVersion {
@@ -1174,4 +1206,19 @@ Function Invoke-KraneGitCommand {
     
 }
 
-#Ffrom PsClassUtils
+Function Invoke-KraneTestScripts {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [KraneProject]$KraneProject,
+
+        [Parameter(Mandatory = $False)]
+        [String]$Version = "Latest"
+
+    )
+
+    $TestHelper = [PesterTestHelper]::New()
+    $TestHelper.SetVersion($Version)
+    $TestHelper.InvokeTests($KraneProject.Tests.FullName)
+    Return $TestHelper
+}
