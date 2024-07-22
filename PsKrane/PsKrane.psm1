@@ -101,10 +101,11 @@ Class KraneFile {
 }
 
 Class KraneProject {
+    [System.IO.DirectoryInfo]$Root
     [KraneFile]$KraneFile
     [ProjectType]$ProjectType
-    [System.IO.DirectoryInfo]$Root
     [String]$ProjectVersion
+
 
     KraneProject() {}
 
@@ -118,17 +119,18 @@ Class KraneProject {
 
 Class KraneModule : KraneProject {
     [String]$ModuleName
-    [System.IO.FileInfo]$ModuleFile
-    [System.IO.FileInfo]$ModuleDataFile
-    [System.IO.DirectoryInfo]$Build
-    [System.IO.DirectoryInfo]$Sources
-    [System.IO.DirectoryInfo]$Tests
-    [System.IO.DirectoryInfo]$Outputs
+    hidden [System.IO.FileInfo]$ModuleFile
+    hidden [System.IO.FileInfo]$ModuleDataFile
+    hidden [System.IO.DirectoryInfo]$Build
+    hidden [System.IO.DirectoryInfo]$Sources
+    hidden [System.IO.DirectoryInfo]$Tests
+    hidden [System.IO.DirectoryInfo]$Outputs
     [String[]] $Tags = @( 'PSEdition_Core', 'PSEdition_Desktop' )
     [String]$Description
     [String]$ProjectUri
     [Bool]$IsGitInitialized
     [psModule]$PsModule
+    [TestHelper]$TestData
     Hidden [System.Collections.Hashtable]$ModuleData = @{}
 
     #Add option Overwrite
@@ -1220,5 +1222,6 @@ Function Invoke-KraneTestScripts {
     $TestHelper = [PesterTestHelper]::New()
     $TestHelper.SetVersion($Version)
     $TestHelper.InvokeTests($KraneProject.Tests.FullName)
+    $KraneProject.TestData = $TestHelper
     Return $TestHelper
 }
