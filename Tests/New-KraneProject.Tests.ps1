@@ -1,6 +1,6 @@
 Describe "Testing Write-Host" {
     It "Should output 'plop'" {
-        $output = Write-Host "plop" -NoNewline
+        $output = Write-output "plop"
         $output | Should -Be "plop"
     }
 }
