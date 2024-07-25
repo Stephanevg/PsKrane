@@ -13,21 +13,23 @@ Class KraneFile {
 
         #Handeling case when Path doesn't exists yet (For creation scenarios)
         $Root = ""
-        if((Test-Path -Path $Path) -eq $False){
-            if($Path.EndsWith(".krane.json")){
+        if ((Test-Path -Path $Path) -eq $False) {
+            if ($Path.EndsWith(".krane.json")) {
                 [System.Io.DirectoryInfo]$Root = ([System.Io.FileInfo]$Path).Directory
 
             }
             else {
                 [System.Io.DirectoryInfo]$Root = $Path
             }
-        }else{
+        }
+        else {
             #Path exists. We need to determine if it is a file or a folder.
             $Item = Get-Item -Path $Path
 
-            if($Item.PSIsContainer){
+            if ($Item.PSIsContainer) {
                 $Root = $Item
-            }else{
+            }
+            else {
                 $Root = $Item.Directory
             }
         }
@@ -59,11 +61,11 @@ Class KraneFile {
     }
 
     [Void]Save() {
-        if (!($this.Path.Exists)){
+        if (!($this.Path.Exists)) {
 
             $Null = [System.Io.Directory]::CreateDirectory($this.Path.Directory.FullName) | Out-Null
         }
-        $this.Data | ConvertTo-Json | Out-File -Path $this.Path.FullName -Encoding utf8 -Force
+        $this.Data | ConvertTo-Json | Out-File -FilePath $this.Path.FullName -Encoding utf8 -Force
         $this.Path.Refresh()
         $this.IsPresent = $this.File.Exists
     }
@@ -135,7 +137,7 @@ Class KraneModule : KraneProject {
 
     #Add option Overwrite
 
-    KraneModule([System.IO.DirectoryInfo]$Root){
+    KraneModule([System.IO.DirectoryInfo]$Root) {
         #When the module Name is Not passed, we assume that a .Krane.json file is already present at the root.
         $this.KraneFile = [KraneFile]::New($Root)
         $this.ProjectType = [ProjectType]::Module
@@ -234,7 +236,7 @@ Class KraneModule : KraneProject {
         If ($ClassFolderPath.Exists) {
             
             $PublicClasses = Get-ChildItem -Path $ClassFolderPath.FullName -Filter *.ps1 | sort-object Name
-            if($PublicClasses){
+            if ($PublicClasses) {
                 write-Verbose "[KraneModule][BuildModule][PSM1] Classes Found. Importing..."
                 $MainPSM1Contents += $PublicClasses
             }
@@ -304,9 +306,10 @@ Class KraneModule : KraneProject {
             Write-Verbose "[KraneModule][BuildModule][PSD1][Setting] $($ManifestSetting.Key) -> $($ManifestSetting.Value)"
         }
 
-        try{
+        try {
             Update-ModuleManifest @ManifestParams
-        }Catch{
+        }
+        Catch {
             Write-Error "[KraneModule][BuildModule][PSD1] Error updating module manifest. $_"
         }
 
@@ -320,16 +323,16 @@ Class KraneModule : KraneProject {
         $this.ModuleDataFile = Join-Path -Path $this.Outputs.FullName -ChildPath "Module\$($ModuleName).psd1"
     }
 
-    [void] CreateBaseStructure(){
-        if($this.Outputs.Exists -eq $false){
+    [void] CreateBaseStructure() {
+        if ($this.Outputs.Exists -eq $false) {
             $Null = New-Item -Path $this.Outputs.FullName -ItemType "directory"
         }
 
-        if($this.Build.Exists -eq $false){
+        if ($this.Build.Exists -eq $false) {
             $Null = New-Item -Path $this.Build.FullName -ItemType "directory"
         }
 
-        if($this.Sources.Exists -eq $false){
+        if ($this.Sources.Exists -eq $false) {
             $Null = New-Item -Path $this.Sources.FullName -ItemType "directory"
         }
 
@@ -343,14 +346,14 @@ Class KraneModule : KraneProject {
             $Null = New-Item -Path $PublicFunctions.FullName -ItemType "directory"
         }
 
-        if($this.Tests.Exists -eq $false){
+        if ($this.Tests.Exists -eq $false) {
             $Null = New-Item -Path $this.Tests.FullName -ItemType "directory"
         }
 
 
     }
 
-    [void]ReverseBuild(){
+    [void]ReverseBuild() {
         #ReverseBuild will take the module file and extract the content to the sources folder.
     
 
@@ -363,7 +366,7 @@ Class KraneModule : KraneProject {
     }
 
     Fetch() {
-        if ($this.Build.Exists){
+        if ($this.Build.Exists) {
 
             $e = Import-PowerShellDataFile -Path $this.Build.FullName
             $this.ProjectVersion = $this.setProjectVersion($e.ModuleVersion)
@@ -376,7 +379,7 @@ Class KraneModule : KraneProject {
         $this.KraneFile.Save()
     }
 
-    [Void] FetchGitInitStatus(){
+    [Void] FetchGitInitStatus() {
         [System.IO.DirectoryInfo]$GitFolderpath = join-Path -Path $this.Root.FullName -ChildPath ".git\"
         $this.IsGitInitialized = $GitFolderpath.Exists
     }
@@ -510,7 +513,7 @@ Class NuSpecFile {
     }
 
     CreateNugetFile() {
-        if(!($this.ExportFolderPath.Exists)){
+        if (!($this.ExportFolderPath.Exists)) {
             $this.ExportFolderPath.Create()
         }
         & nuget pack $this.NuSpecFilePath.FullName -OutputDirectory $this.ExportFolderPath
@@ -557,8 +560,8 @@ New-KraneNugetFile -KraneModule $KraneModule -Force
 
 Class TestScript : PsScriptFile {
     #Creates the test script that will be used to test the module
-    TestScript([KraneModule]$KraneModule,[String]$TestName) {
-        if(!($TestName.Contains(".Tests.ps1"))){
+    TestScript([KraneModule]$KraneModule, [String]$TestName) {
+        if (!($TestName.Contains(".Tests.ps1"))) {
             $TestName = $TestName + ".Tests.ps1"
         }
         $this.Path = Join-Path -Path $KraneModule.Tests.FullName -ChildPath $TestName
@@ -566,12 +569,12 @@ Class TestScript : PsScriptFile {
     }
 
     [void] CreateTestScript() {
-        if(Test-Path $this.Path.FullName){
+        if (Test-Path $this.Path.FullName) {
             Write-Verbose "[Krane][TestScript][CreateTestScript]Test script $($this.Path.FullName) already exists"
             return
         }
         
-            #Create the test script
+        #Create the test script
         $Content = @'
 # Generated with love using PsKrane
 
@@ -591,9 +594,9 @@ InModuleScope -ModuleName $KraneProject.ModuleName -ScriptBlock {
     }
 }
 '@
-            Write-Verbose "[Krane][TestScript][CreateTestScript]Creating Test script at -> $($this.Path.FullName)"
-            $Content | Out-File -FilePath $this.Path.FullName -Encoding utf8 -Force
-        }
+        Write-Verbose "[Krane][TestScript][CreateTestScript]Creating Test script at -> $($this.Path.FullName)"
+        $Content | Out-File -FilePath $this.Path.FullName -Encoding utf8 -Force
+    }
 }
 
 Class GitHelper {
@@ -609,19 +612,20 @@ Class GitHelper {
 
     GitTag([string]$Tag) {
 
-        try{
+        try {
             Write-Verbose "[GitHelper][GitTag] tagging with value -> $tag"
             #& $this.Git.FullName tag -a $tag -m $tag
             $strOutput = & $this.Git.FullName tag -a $tag -m $tag 2>&1
             if ($LASTEXITCODE -ne 0) {
                 throw "Failed to write tag: $strOutput"
             }
-        }catch{
+        }
+        catch {
             throw "Error creating tag $tag. $_"
         }
     }
 
-    GitTag([string]$TagAnnotation,[String]$TagMessage) {
+    GitTag([string]$TagAnnotation, [String]$TagMessage) {
 
         try {
             Write-Verbose "[GitHelper][GitTag] tagging with anonotation -> $TagAnnotation and message $TagMessage"
@@ -636,49 +640,53 @@ Class GitHelper {
     }
 
     GitCommit([string]$Message) {
-        try{
+        try {
             
             Write-Verbose "[GitHelper][GitCommit] commit with message -> $Message"
             $strOutput = & $this.Git.FullName commit -m $Message 2>&1
             if ($LASTEXITCODE -ne 0) {
                 throw "Failed to commit: $strOutput"
             }
-        }catch{
+        }
+        catch {
             throw "Error creating commit. $_"
         }
     }
 
     GitAdd([string]$Path) {
-        try{
+        try {
             & $this.Git.FullName add $Path
-        }catch{
+        }
+        catch {
             throw "Error adding $Path to git. $_"
         }
     }
 
     GitPushTags() {
         $strOutput = ""
-        try{
+        try {
             #& $this.Git.FullName push --tags
             Write-Verbose "[GitHelper][GitPushTags] pushing tags"
             $strOutput = & $this.Git.FullName push --tags -q 2>&1
             if ($LASTEXITCODE -ne 0) {
                 throw "LastExitcode: $LASTEXITCODE . Failed to push tags. Received output: $strOutput"
             }
-        }catch{
+        }
+        catch {
             
             throw "Error pushing tags to git. output: $($strOutput). Error content: $_"
         }
     }
 
-    GitPushWithTags(){
-        try{
+    GitPushWithTags() {
+        try {
             Write-Verbose "[GitHelper][GitPushWithTags] pushing with tags"
             $strOutput = & $this.Git.FullName push --follow-tags 2>&1
             if ($LASTEXITCODE -ne 0) {
                 throw "Failed to push with tags: $strOutput"
             }
-        }catch{
+        }
+        catch {
             throw "Error pushing with tags to git. $_"
         }
     
@@ -747,7 +755,7 @@ Class PsModule {
             $Raw = [System.Management.Automation.Language.Parser]::ParseFile($p.FullName, [ref]$null, [ref]$Null)
             $ASTClasses = $Raw.FindAll( { $args[0] -is [System.Management.Automation.Language.TypeDefinitionAst] }, $true)
 
-            foreach($ASTClass in $ASTClasses){
+            foreach ($ASTClass in $ASTClasses) {
 
                 $null = $this.Classes.Add($ASTClass)
             }
@@ -786,7 +794,7 @@ Class PsModule {
     }
 
 
-    ReverseBuild([System.IO.DirectoryInfo]$ExportFolderPath){
+    ReverseBuild([System.IO.DirectoryInfo]$ExportFolderPath) {
         #This method will take the module file and extract the content to the sources folder and put the functions in the right folder.
         #It is recommended to export to a folder called 'Sources' as other internal Krane functions rely on this folder structure.
 
@@ -794,29 +802,29 @@ Class PsModule {
         [System.IO.DirectoryInfo]$PublicPath = Join-Path -Path $ExportFolderPath.FullName -ChildPath "Functions\Public"
         [System.IO.DirectoryInfo]$ClassesFolder = Join-Path -Path $ExportFolderPath.FullName -ChildPath "Classes"
 
-        if($PrivatePath.Exists -eq $false){
+        if ($PrivatePath.Exists -eq $false) {
             $null = New-Item -Path $PrivatePath.FullName -ItemType "directory" -Force
         }
         if ($PublicPath.Exists -eq $false) {
             $null = New-Item -Path $PublicPath.FullName -ItemType "directory" -Force
         }
-        if($ClassesFolder.Exists -eq $false){
+        if ($ClassesFolder.Exists -eq $false) {
             $null = New-Item -Path $ClassesFolder.FullName -ItemType "directory" -Force
         }
 
-        foreach($funct in $this.functions){
+        foreach ($funct in $this.functions) {
             $FileName = $funct.Name + ".ps1"
-            if($funct.IsPrivate){
+            if ($funct.IsPrivate) {
                 $FullExportPath = Join-Path -Path $PrivatePath.FullName -ChildPath $FileName
                 $funct.RawAst.Extent.Text | Out-File -FilePath $FullExportPath -Encoding utf8 -Force
             }
-            else{
+            else {
                 $FullExportPath = Join-Path -Path $PublicPath.FullName -ChildPath $FileName
                 $funct.RawAst.Extent.Text | Out-File -FilePath $FullExportPath -Encoding utf8 -Force
             }
         }
 
-        foreach($class in $this.Classes){
+        foreach ($class in $this.Classes) {
             $FileName = $class.Name + ".ps1"
             $FullExportPath = Join-Path -Path $ClassesFolder.FullName -ChildPath $FileName
             $Class.Extent.Text | Out-File -FilePath $FullExportPath -Encoding utf8 -Force
@@ -854,13 +862,14 @@ Class PesterTestHelper : TestHelper {
 
     [void] InvokeTests([String[]]$Path) {
         #Accepts eithern a string or an array of strings that should be the path to the test script(s) or the folder containing test scripts.
-        if([string]::IsNullOrEmpty($Path)){
+        if ([string]::IsNullOrEmpty($Path)) {
             throw "No path provided for tests"
         }
 
-        if($this.Version -eq 'Latest'){
+        if ($this.Version -eq 'Latest') {
             Import-Module -Name Pester -Force
-        }else{
+        }
+        else {
             Import-Module -Name Pester -RequiredVersion $this.Version -Force -Global   
         }
 
@@ -869,20 +878,20 @@ Class PesterTestHelper : TestHelper {
         $this.TestData = Invoke-Pester -Path $Path -PassThru -Show None
     }
 
-    [void] SetVersion([String]$Version){
+    [void] SetVersion([String]$Version) {
         $this.Version = $Version
     }
 
-    [String] ToString(){
-        return "Result: {0} PassedCount: {1} FailedCount: {2}" -f $this.TestData.Result,$this.TestData.PassedCount,$this.TestData.FailedCount
+    [String] ToString() {
+        return "Result: {0} PassedCount: {1} FailedCount: {2}" -f $this.TestData.Result, $this.TestData.PassedCount, $this.TestData.FailedCount
     
     }
 
-    [object] GetFailedTests(){
+    [object] GetFailedTests() {
         return $this.TestData.Failed
     }
 
-    [object] GetPassedTests(){
+    [object] GetPassedTests() {
         return $this.TestData.Passed
     }
 }
@@ -969,12 +978,17 @@ Function New-KraneProject {
         [String]$Name,
 
         [Parameter(Mandatory = $True, HelpMessage = "Root folder of the project")]
-        [System.IO.DirectoryInfo]$Path,
-
-        [Switch]$Force
+        [System.IO.DirectoryInfo]$Path
     )
 
-    switch($Type) {
+    [System.IO.DirectoryInfo]$DestinationPath = Join-Path -Path $Path.FullName -ChildPath $Name
+
+    if($DestinationPath.Exists){
+        Write-warning "[New-KraneProject] Project already exists at '$($DestinationPath.FullName)'."
+        return
+    }
+
+    switch ($Type) {
         "Module" {
 
             $KraneProject = [KraneModule]::New($Path, $Name)
@@ -984,15 +998,11 @@ Function New-KraneProject {
         }
     }
 
-    if($Force){
-        $KraneProject.CreateBaseStructure()
-        Add-KraneBuildScript -KraneModule $KraneProject
-    }
+    $KraneProject.CreateBaseStructure()
+    Add-KraneBuildScript -KraneModule $KraneProject
     
-
     Return $KraneProject
-
-    
+ 
 }
 
 Function New-KraneNuspecFile {
@@ -1037,12 +1047,12 @@ Function Get-KraneProject {
         write-Verbose "[Get-KraneProject] Root parameter was omitted. Using Current location: $Root"
  
     }
-    ElseIf($Root.Exists -eq $false) {
+    ElseIf ($Root.Exists -eq $false) {
         Throw "Root $($Root.FullName) folder not found"
     }
 
     [System.IO.FileInfo]$KraneFile = Join-Path -Path $Root.FullName -ChildPath ".krane.json"
-    If (!($KraneFile.Exists)){
+    If (!($KraneFile.Exists)) {
         Throw "No .Krane file found in $($Root.FullName). Verify the path, or create a new project using New-KraneProject"
     }
     write-Verbose "[Get-KraneProject] Fetching Krane project from path: $Root"
@@ -1068,14 +1078,14 @@ Function Add-KraneBuildScript {
     
     [CmdletBinding()]
     Param(
-        [Parameter(Mandatory = $False, ParameterSetName="Path")]
+        [Parameter(Mandatory = $False, ParameterSetName = "Path")]
         [System.IO.DirectoryInfo]$Path,
 
         [Parameter(Mandatory = $False, ParameterSetName = "KraneModule")]
         [KraneModule]$KraneModule
     )
 
-    Switch($PSCmdlet.ParameterSetName){
+    Switch ($PSCmdlet.ParameterSetName) {
         "Path" {
             $BuildScript = [BuildScript]::New($Path)
             $BuildScript.CreateBuildScript()
@@ -1113,8 +1123,8 @@ Function New-KraneTestScript {
         [String]$TestName
     )
 
-        $TestScript = [TestScript]::New($KraneModule, $TestName)
-        $TestScript.CreateTestScript()
+    $TestScript = [TestScript]::New($KraneModule, $TestName)
+    $TestScript.CreateTestScript()
 }
 
 Function Invoke-KraneBuild {
@@ -1123,7 +1133,7 @@ Function Invoke-KraneBuild {
         [KraneProject]$KraneProject
     )
     $BuildFile = Join-Path -Path $KraneProject.Build.FullName -ChildPath "Build.Krane.ps1"
-    if (!(Test-Path -Path $BuildFile)){
+    if (!(Test-Path -Path $BuildFile)) {
         Throw "BuildFile $($BuildFile) not found. Please make sure it is there, and try again"
     }
 
@@ -1164,7 +1174,7 @@ Function New-KraneNugetFile {
 
     $NuSpec = [NuSpecFile]::New($KraneModule)
     
-    if($Force){
+    if ($Force) {
         $NuSpec.CreateNuSpecFile()
     }
 
@@ -1174,11 +1184,11 @@ Function New-KraneNugetFile {
 Function Invoke-KraneGitCommand {
     [CmdletBinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [KraneProject]$KraneProject,
 
-        [Parameter(Mandatory=$true)]
-        [ValidateSet("tag", "PushTags","PushWithTags")]
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("tag", "PushTags", "PushWithTags")]
         [String]$GitAction,
 
         [String]$Argument
@@ -1188,9 +1198,9 @@ Function Invoke-KraneGitCommand {
 
     $GitHelper = [GitHelper]::New()
 
-    switch($GitAction){
+    switch ($GitAction) {
         "tag" {
-            if(!($Argument)){
+            if (!($Argument)) {
                 $Argument = "v{0}" -f $KraneProject.ProjectVersion
             }
             Write-Verbose "[Invoke-KraneGitCommand] Invoking Git action $GitAction with argument $Argument"
@@ -1211,7 +1221,7 @@ Function Invoke-KraneGitCommand {
 Function Invoke-KraneTestScripts {
     [CmdletBinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory = $True)]
         [KraneProject]$KraneProject,
 
         [Parameter(Mandatory = $False)]
