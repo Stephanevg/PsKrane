@@ -984,8 +984,13 @@ Function New-KraneProject {
     [System.IO.DirectoryInfo]$DestinationPath = Join-Path -Path $Path.FullName -ChildPath $Name
 
     if($DestinationPath.Exists){
-        Write-warning "[New-KraneProject] Project already exists at '$($DestinationPath.FullName)'."
-        return
+        $KraneFile = Get-ChildItem -Path $DestinationPath.FullName -Filter ".krane.json"
+        if($KraneFile){
+
+            Write-warning "[New-KraneProject] Project already exists at '$($DestinationPath.FullName)'."
+            return
+        }
+        #Kranefile doesn't exists. This means the folder is empty. We can create the project
     }
 
     switch ($Type) {
