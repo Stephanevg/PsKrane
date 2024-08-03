@@ -12,7 +12,7 @@
 RootModule = 'PsKrane.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.5.2'
+ModuleVersion = '0.6.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -79,7 +79,8 @@ PowerShellVersion = '5.1'
         "Invoke-KraneBuild",
         "Get-KraneProjectVersion",
         "Invoke-KraneGitCommand",
-        "Invoke-KraneTestScripts"
+        "Invoke-KraneTestScripts",
+        "New-KraneItem"
         )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

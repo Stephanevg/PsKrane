@@ -3,6 +3,12 @@ Enum ProjectType {
     Script
 }
 
+Enum ItemFileType{
+    Class
+    PublicFunction
+    PrivateFunction
+}
+
 Class KraneFile {
     #CraneFile is a class that represents the .Krane.json file that is used to store the configuration of the Krane project.
     [System.IO.FileInfo]$Path
@@ -107,6 +113,8 @@ Class KraneProject {
     [KraneFile]$KraneFile
     [ProjectType]$ProjectType
     [String]$ProjectVersion
+    [System.IO.DirectoryInfo]$TemplatesPath
+    [System.Collections.ArrayList]$Templates = [System.Collections.ArrayList]::New()
 
 
     KraneProject() {}
@@ -115,7 +123,48 @@ Class KraneProject {
 
         $this.KraneFile = [KraneFile]::New($Root)
         $this.ProjectVersion = $this.KraneFile.Get("ProjectVersion")
-        
+
+    }
+
+    AddItem([String]$Name, [String]$Type) {
+        throw "Must be overwritten!"
+        #Add an item to the project. The item can be a script, a module, a test, etc.
+    }
+
+    hidden [void] LoadTemplates() {
+        #Load the templates from the templates folder
+        $AllModuleTemplates = Get-ChildItem -Path "$($PSScriptRoot)\Templates" -Filter "*.KraneTemplate.ps1"
+        foreach ($TemplateFile in $AllModuleTemplates) {
+            $Template = [KraneTemplate]::New($TemplateFile)
+            $Template.SetLocation([LocationType]::Module)
+            $this.Templates.Add($Template)
+        }
+        $AllCustomerTemplates = $null
+
+        if($env:IsWindows) {
+            $AllCustomerTemplates = Get-ChildItem -Path "$($env:ProgramData)\PsKrane\Templates" -Filter "*.KraneTemplate.ps1"
+        }elseif($env:IsLinux){
+            $AllCustomerTemplates = Get-ChildItem -Path " /opt/PsKrane/Templates" -Filter "*.KraneTemplate.ps1"
+        }elseif($env:IsMacOS){
+            $AllCustomerTemplates = Get-ChildItem -Path "/Applications/PsKrane/Templates" -Filter "*.KraneTemplate.ps1"
+        }
+
+        foreach ($TemplateFile in $AllCustomerTemplates) {
+            $Template = [KraneTemplate]::New($TemplateFile)
+            $Template.SetLocation([LocationType]::Customer)
+            $this.Templates.Add($Template)
+        }
+
+        $ProjectRootFolder = Split-Path -Path $PSCommandPath -Parent
+        [System.Io.DirectoryInfo] $TemplatesProjectFolder = Join-Path -Path $ProjectRootFolder -ChildPath "Krane/Templates"
+        if($TemplatesProjectFolder.Exists) {
+            $AllProjectTemplates = Get-ChildItem -Path $TemplatesProjectFolder.FullName -Filter "*.KraneTemplate.ps1"
+            foreach ($TemplateFile in $AllProjectTemplates) {
+                $Template = [KraneTemplate]::New($TemplateFile)
+                $Template.SetLocation([LocationType]::Project)
+                $this.Templates.Add($Template)
+            }
+        }
     }
 }
 
@@ -146,7 +195,7 @@ Class KraneModule : KraneProject {
         $this.Sources = "$($Root.FullName)\Sources"
         $this.Tests = "$($Root.FullName)\Tests"
         $this.Outputs = "$($Root.FullName)\Outputs"
-
+        $This.LoadTemplates()
         #get the module name from the krane file
         
 
@@ -251,7 +300,6 @@ Class KraneModule : KraneProject {
                 write-Verbose "[KraneModule][BuildModule][PSM1] Private functions Found. Importing..."
                 $MainPSM1Contents += $Privatefunctions
             }
-
 
         }
 
@@ -382,6 +430,75 @@ Class KraneModule : KraneProject {
     [Void] FetchGitInitStatus() {
         [System.IO.DirectoryInfo]$GitFolderpath = join-Path -Path $this.Root.FullName -ChildPath ".git\"
         $this.IsGitInitialized = $GitFolderpath.Exists
+    }
+
+    [void] AddItem([String]$Name, [ItemFileType]$Type) {
+        #Add an item to the project. The item can be a script, a module, a test, etc.
+        switch ($Type) {
+            "Class" {
+                $this.AddClass($Name)
+            }
+            "PublicFunction" {
+                $this.AddPublicFunction($Name)
+            }
+            "PrivateFunction" {
+                $this.AddPrivateFunction($Name)
+            }
+            "Test" {
+                $this.AddTest($Name)
+            }
+            default {
+                Throw "Type $Type not supported"
+            }
+        }
+    }
+
+    hidden AddClass([String]$Name,[String]$Content) {
+        [System.IO.FileInfo] $ClassPath = Join-Path -Path $this.Sources.FullName -ChildPath "Classes\$Name.ps1"
+        if ($ClassPath.Exists) {
+            Throw "Class $Name already exists"
+        }
+        $Null = New-Item -Path $ClassPath.FullName -ItemType "file" -Value $Content
+    }
+
+    hidden AddPublicFunction([String]$Name,[String]$Content) {
+        [System.IO.FileInfo] $FunctionPath = Join-Path -Path $this.Sources.FullName -ChildPath "Functions\Public\$Name.ps1"
+        if ($FunctionPath.Exists) {
+            Throw "Function $Name already exists at $($FunctionPath.FullName)"
+        }
+        $Null = New-Item -Path $FunctionPath.FullName -ItemType "file" -Value $Content
+    }
+
+    hidden AddPrivateFunction([String]$Name,[String]$Content) {
+        [System.IO.FileInfo]$FunctionPath = Join-Path -Path $this.Sources.FullName -ChildPath "Functions\Private\$Name.ps1"
+        if ($FunctionPath.Exists) {
+            Throw "Function $Name already exists"
+        }
+        $Null = New-Item -Path $FunctionPath.FullName -ItemType "file" -Value $Content
+    }
+
+    [KraneTemplate] GetTemplate([String]$Type) {
+        #Get the module from the project
+        
+        $Template = $this.Templates | Where-Object { $_.Type -eq $Type }
+        
+        if ($null -eq $Template) {
+            Throw "Template '$Type' not found"
+        }
+        Return $Template
+
+    }
+
+    [KraneTemplate] GetTemplate([String]$Type, [String]$Location) {
+        #Get the module from the project
+        
+        $Template = $this.Templates | Where-Object { $_.Type -eq $Type -and $_.Location -eq $Location }
+        
+        if($null -eq $Template) {
+            Throw "Template '$Type' of location type '$Location' not found"
+        }
+        Return $Template
+
     }
 }
 
@@ -765,7 +882,6 @@ Class PsModule {
         
     }
 
-
     GetASTFunctions([System.IO.FileInfo]$Path) {
 
         Write-Verbose "[PsModule][GetAstFunctions] Fetching functions from $($Path.FullName)"
@@ -830,6 +946,7 @@ Class PsModule {
             $Class.Extent.Text | Out-File -FilePath $FullExportPath -Encoding utf8 -Force
         }
     }
+
 
 }
 
@@ -1239,4 +1356,89 @@ Function Invoke-KraneTestScripts {
     $TestHelper.InvokeTests($KraneProject.Tests.FullName)
     $KraneProject.TestData = $TestHelper
     Return $TestHelper
+}
+
+Enum LocationType {
+    Module
+    Customer
+    Project
+}
+
+Class KraneTemplate {
+    [String]$Type
+    hidden [String]$Content
+    [System.Io.FileInfo]$Path
+    [LocationType]$Location
+
+    KraneTemplate([System.Io.FileInfo]$Path) {
+        if($Path.Exists -eq $false){
+            Throw "Template file $($Path.FullName) not found"
+        }
+
+        $This.Type = $Path.BaseName.Split(".")[0]
+        $this.Path = $Path
+        $this.Content = Get-Content -Path $Path.FullName -Raw
+    }
+
+    SetLocation([LocationType]$Location) {
+        $this.Location = $Location
+    }
+
+    [String] ToString(){
+        return "{0}->{1}" -f $this.Type, $this.Location
+    }
+}
+
+Function New-KraneItem {
+    <#
+    .SYNOPSIS
+        This function helps to create a new item in the project
+    .DESCRIPTION
+        Items in a krane project kan be  a private function, a public function or a class
+    .LINK
+        Specify a URI to a help page, this will show when Get-Help -Online is used.
+    .EXAMPLE
+        Test-MyTestFunction -Verbose
+        Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+    #>
+    
+    param(
+        [Parameter(Mandatory = $True)]
+        [KraneProject]$KraneProject,
+
+        [Parameter(Mandatory = $True)]
+        [ItemFileType]$Type,
+
+        [Parameter(Mandatory = $True)]
+        [String]$Name,
+
+        [Parameter(Mandatory = $False)]
+        [LocationType]$Location = [LocationType]::Module
+    )
+
+    switch ($Type) {
+        'PublicFunction' { $typ = "function" }
+        'PrivateFunction' { $typ = "function" }
+        Default {}
+    }
+
+    $Template = $KraneProject.GetTemplate($typ,$Location)
+
+    if($null -eq $Template){
+        throw "No Template not found for '$Name' in location '$location'"
+    }
+
+    switch($Type){
+        "Class" {
+            $KraneProject.addClass($Name, $Template.Content.Replace('###ClassName###', $Name))
+        }
+        "PublicFunction" {
+            $KraneProject.addPublicFunction($Name, $Template.Content.Replace('###FunctionName###', $Name))
+        }
+        "PrivateFunction" {
+            
+            $KraneProject.addPrivateFunction($Name, $Template.Content.Replace('###FunctionName###', $Name))
+        }
+    }
+    
 }
