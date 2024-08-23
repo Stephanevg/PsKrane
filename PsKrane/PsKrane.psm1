@@ -114,7 +114,8 @@ Class KraneProject {
     [ProjectType]$ProjectType
     [String]$ProjectVersion
     [System.IO.DirectoryInfo]$TemplatesPath
-    [System.Collections.ArrayList]$Templates = [System.Collections.ArrayList]::New()
+    [KraneTemplateCollection]$Templates = [KraneTemplateCollection]::New()
+    #[System.Collections.ArrayList]$Templates = [System.Collections.ArrayList]::New()
 
 
     KraneProject() {}
@@ -137,11 +138,12 @@ Class KraneProject {
         foreach ($TemplateFile in $AllModuleTemplates) {
             $Template = [KraneTemplate]::New($TemplateFile)
             $Template.SetLocation([LocationType]::Module)
-            $this.Templates.Add($Template)
+            $this.Templates.Templates.Add($Template)
         }
-        $AllCustomerTemplates = $null
+        $AllCustomerTemplates = $null #TODO rename to SystemTemplates
 
-        if($env:IsWindows) {
+
+        if ($global:PSVersionTable.os -match '^.*Windows.*$' ) {
             $AllCustomerTemplates = Get-ChildItem -Path "$($env:ProgramData)\PsKrane\Templates" -Filter "*.KraneTemplate.ps1"
         }elseif($env:IsLinux){
             $AllCustomerTemplates = Get-ChildItem -Path " /opt/PsKrane/Templates" -Filter "*.KraneTemplate.ps1"
@@ -152,17 +154,17 @@ Class KraneProject {
         foreach ($TemplateFile in $AllCustomerTemplates) {
             $Template = [KraneTemplate]::New($TemplateFile)
             $Template.SetLocation([LocationType]::Customer)
-            $this.Templates.Add($Template)
+            $this.Templates.Templates.Add($Template)
         }
 
-        $ProjectRootFolder = Split-Path -Path $PSCommandPath -Parent
+        $ProjectRootFolder = $this.Root.FullName
         [System.Io.DirectoryInfo] $TemplatesProjectFolder = Join-Path -Path $ProjectRootFolder -ChildPath "Krane/Templates"
         if($TemplatesProjectFolder.Exists) {
             $AllProjectTemplates = Get-ChildItem -Path $TemplatesProjectFolder.FullName -Filter "*.KraneTemplate.ps1"
             foreach ($TemplateFile in $AllProjectTemplates) {
                 $Template = [KraneTemplate]::New($TemplateFile)
                 $Template.SetLocation([LocationType]::Project)
-                $this.Templates.Add($Template)
+                $this.Templates.Templates.Add($Template)
             }
         }
     }
@@ -458,7 +460,7 @@ Class KraneModule : KraneProject {
         if ($ClassPath.Exists) {
             Throw "Class $Name already exists"
         }
-        $Null = New-Item -Path $ClassPath.FullName -ItemType "file" -Value $Content
+        $Null = New-Item -Path $ClassPath.FullName -ItemType "file" -Value $Content -Force
     }
 
     hidden AddPublicFunction([String]$Name,[String]$Content) {
@@ -489,11 +491,14 @@ Class KraneModule : KraneProject {
 
     }
 
-    [KraneTemplate] GetTemplate([String]$Type, [String]$Location) {
+    [KraneTemplate] GetTemplates() {
+        return $this.Templates.GetTemplates()
+    }
+
+    [KraneTemplate[]] GetTemplate([String]$Type, [String]$Location) {
         #Get the module from the project
-        
-        $Template = $this.Templates | Where-Object { $_.Type -eq $Type -and $_.Location -eq $Location }
-        
+        $Template = $this.Templates.GetTemplate($Type, $Location)
+
         if($null -eq $Template) {
             Throw "Template '$Type' of location type '$Location' not found"
         }
@@ -1364,6 +1369,35 @@ Enum LocationType {
     Project
 }
 
+Class KraneTemplateCollection {
+    [System.Collections.ArrayList]$Templates = [System.Collections.ArrayList]::New()
+
+    KraneTemplateCollection() {}
+
+    AddTemplate([KraneTemplate]$Template) {
+        $null = $this.Templates.Add($Template)
+    }
+
+    [KraneTemplate[]] GetTemplates() {
+        return $this.Templates
+    }
+
+    [KraneTemplate[]]GetTemplate([String]$Type) {
+        $Template = $this.Templates | Where-Object { $_.Type -eq $Type }
+        
+        Return $Template
+    }
+    
+    [KraneTemplate] GetTemplate([String]$Type, [LocationType]$Location) {
+        Write-Verbose "[KraneTemplateCollection] Getting template of type $Type and location $Location"
+        $Template = $this.Templates | Where-Object { $_.Type -eq $Type -and $_.Location -eq $Location }
+        if ($null -eq $Template) {
+            Throw "Template '$Type' of location type '$Location' not found"
+        }
+        Return $Template
+    }
+}
+
 Class KraneTemplate {
     [String]$Type
     hidden [String]$Content
@@ -1371,6 +1405,7 @@ Class KraneTemplate {
     [LocationType]$Location
 
     KraneTemplate([System.Io.FileInfo]$Path) {
+        Write-Verbose '[KraneTemplate] Start Constructor [System.Io.FileInfo]$Path'
         if($Path.Exists -eq $false){
             Throw "Template file $($Path.FullName) not found"
         }
@@ -1378,6 +1413,7 @@ Class KraneTemplate {
         $This.Type = $Path.BaseName.Split(".")[0]
         $this.Path = $Path
         $this.Content = Get-Content -Path $Path.FullName -Raw
+        Write-Verbose "[KraneTemplate] End  Constructor"
     }
 
     SetLocation([LocationType]$Location) {
@@ -1386,6 +1422,11 @@ Class KraneTemplate {
 
     [String] ToString(){
         return "{0}->{1}" -f $this.Type, $this.Location
+    }
+
+    [string] GetContent(){
+        Write-Verbose "[KraneTemplate] Getting content of template $($this.Path.FullName)"
+        return $this.Content
     }
 }
 
@@ -1415,11 +1456,15 @@ Function New-KraneItem {
         [Parameter(Mandatory = $False)]
         [LocationType]$Location = [LocationType]::Module
     )
-
+    write-verbose "[New-KraneItem] Start of function"
+    write-verbose "[New-KraneItem] Creating new item of type $Type with name $Name in location $Location"
+    #Any function can be of type Prive or Public. We will use the same template for both and copy the content to the right location.
     switch ($Type) {
         'PublicFunction' { $typ = "function" }
         'PrivateFunction' { $typ = "function" }
-        Default {}
+        Default {
+            $typ = $Type
+        }
     }
 
     $Template = $KraneProject.GetTemplate($typ,$Location)
@@ -1430,15 +1475,19 @@ Function New-KraneItem {
 
     switch($Type){
         "Class" {
-            $KraneProject.addClass($Name, $Template.Content.Replace('###ClassName###', $Name))
+            $NewContent = $Template.GetContent().Replace('###ClassName###', $Name)
+            $KraneProject.addClass($Name, $NewContent)
         }
         "PublicFunction" {
-            $KraneProject.addPublicFunction($Name, $Template.Content.Replace('###FunctionName###', $Name))
+            $NewContent =  $Template.GetContent().Replace('###FunctionName###', $Name)
+            $KraneProject.addPublicFunction($Name,$NewContent)
         }
         "PrivateFunction" {
-            
-            $KraneProject.addPrivateFunction($Name, $Template.Content.Replace('###FunctionName###', $Name))
+            $NewContent =  $Template.GetContent().Replace('###FunctionName###', $Name)
+            $KraneProject.addPrivateFunction($Name, $Newcontent)
         }
     }
+
+    write-verbose "[New-KraneItem] End of function"
     
 }
