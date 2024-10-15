@@ -3,7 +3,7 @@ class ###ClassName### {
 .SYNOPSIS
     Class ###ClassName### helps to...
 .DESCRIPTION
-    A longer description of the function, its purpose, common use cases, etc.
+    A longer description of the class, its purpose, common use cases, etc.
 .NOTES
     ChangeLog:
         v0.0.1: Generated with love using PsKrane    

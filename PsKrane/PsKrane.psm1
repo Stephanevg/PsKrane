@@ -140,18 +140,18 @@ Class KraneProject {
             $Template.SetLocation([LocationType]::Module)
             $this.Templates.Templates.Add($Template)
         }
-        $AllCustomerTemplates = $null #TODO rename to SystemTemplates
+        $AllSystemTemplates = $null
 
 
         if ($global:PSVersionTable.os -match '^.*Windows.*$' ) {
-            $AllCustomerTemplates = Get-ChildItem -Path "$($env:ProgramData)\PsKrane\Templates" -Filter "*.KraneTemplate.ps1"
+            $AllSystemTemplates = Get-ChildItem -Path "$($env:ProgramData)\PsKrane\Templates" -Filter "*.KraneTemplate.ps1"
         }elseif($env:IsLinux){
-            $AllCustomerTemplates = Get-ChildItem -Path " /opt/PsKrane/Templates" -Filter "*.KraneTemplate.ps1"
+            $AllSystemTemplates = Get-ChildItem -Path " /opt/PsKrane/Templates" -Filter "*.KraneTemplate.ps1"
         }elseif($env:IsMacOS){
-            $AllCustomerTemplates = Get-ChildItem -Path "/Applications/PsKrane/Templates" -Filter "*.KraneTemplate.ps1"
+            $AllSystemTemplates = Get-ChildItem -Path "/Applications/PsKrane/Templates" -Filter "*.KraneTemplate.ps1"
         }
 
-        foreach ($TemplateFile in $AllCustomerTemplates) {
+        foreach ($TemplateFile in $AllSystemTemplates) {
             $Template = [KraneTemplate]::New($TemplateFile)
             $Template.SetLocation([LocationType]::Customer)
             $this.Templates.Templates.Add($Template)
@@ -456,11 +456,13 @@ Class KraneModule : KraneProject {
     }
 
     hidden AddClass([String]$Name,[String]$Content) {
-        [System.IO.FileInfo] $ClassPath = Join-Path -Path $this.Sources.FullName -ChildPath "Classes\$Name.ps1"
+        $ClassRootFolder = Join-Path -Path $this.Sources.FullName -ChildPath "Classes"
+        [System.IO.FileInfo] $ClassPath = Join-Path -Path $ClassRootFolder -ChildPath "$Name.ps1"
         if ($ClassPath.Exists) {
             Throw "Class $Name already exists"
         }
         $Null = New-Item -Path $ClassPath.FullName -ItemType "file" -Value $Content -Force
+        $this.PsModule.GetAstClasses($ClassRootFolder)
     }
 
     hidden AddPublicFunction([String]$Name,[String]$Content) {
@@ -1365,7 +1367,7 @@ Function Invoke-KraneTestScripts {
 
 Enum LocationType {
     Module
-    Customer
+    System
     Project
 }
 
