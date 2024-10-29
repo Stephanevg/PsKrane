@@ -95,3 +95,39 @@ ProjectVersion   : 0.2.2
 
 ```
 
+# Using Templates
+
+PsKrane allows to generate functions & classes in a standard super easy to 
+
+Since version 0.6.1 it is possible to use the cmdlet `New-KraneItem` in order to add a new function or a class for your project.
+
+This function / class will be created based on a pre-existing template.
+
+Since there are a lot of different use cases and that everybody has their own style and coding principles, there are different ways to consume a __krane template__. 
+They work in a hierarchal way, but you can also specifiy a specific template that you would like.
+
+This difference between the templates are called: __Template Types__ and can be defined in 3 different level types.
+
+## Template types:
+
+### Module Templates
+
+PsKrane it's self comes with an existing / default function and class template. These __module templates__  are purpusefully very generic to fit *everybody's* programming needs. These templates are called __module templates__.
+
+It is possible to get more granular and to define your own templates with the two next type of templates.
+
+
+
+## System Templates
+
+System templates are system wide templates for functions and classes. These Templates can be used in any __krane__ project.
+
+## Project Templates
+
+Project Templates are templates that are specific to a krane project, can only be found and used in that specific krane project. 
+
+> Ultimatley, it is just a file in a specific folder structure, so you Can actually copy one project template to another project.
+
+
+
+
