@@ -481,8 +481,13 @@ Class KraneModule : KraneProject {
         $Null = New-Item -Path $FunctionPath.FullName -ItemType "file" -Value $Content
     }
 
+    [KraneTemplate[]] GetTemplate() {
+        #Returns ALL existing templates
+        return $this.Templates.GetTemplate()
+    }
+
     [KraneTemplate] GetTemplate([String]$Type) {
-        #Get the module from the project
+        #Retrieve specific template by type
         
         $Template = $this.Templates | Where-Object { $_.Type -eq $Type }
         
@@ -493,12 +498,9 @@ Class KraneModule : KraneProject {
 
     }
 
-    [KraneTemplate] GetTemplates() {
-        return $this.Templates.GetTemplates()
-    }
-
     [KraneTemplate[]] GetTemplate([String]$Type, [String]$Location) {
-        #Get the module from the project
+        #Retrieves specific template by type and location.
+
         $Template = $this.Templates.GetTemplate($Type, $Location)
 
         if($null -eq $Template) {
@@ -1380,7 +1382,7 @@ Class KraneTemplateCollection {
         $null = $this.Templates.Add($Template)
     }
 
-    [KraneTemplate[]] GetTemplates() {
+    [KraneTemplate[]] GetTemplate() {
         return $this.Templates
     }
 
@@ -1492,4 +1494,46 @@ Function New-KraneItem {
 
     write-verbose "[New-KraneItem] End of function"
     
+}
+
+function Get-KraneTemplate {
+    <#
+    .SYNOPSIS
+        Retrieves all existing templates from a specific krane project.
+    .DESCRIPTION
+        Retrieves all existing templates from a specific krane project.
+    .LINK
+        https://www.github.com/stephanevg/PsKrane
+    .EXAMPLE
+        Get-KraneTemplate -KraneProject $KraneProject
+    #>
+    
+    param(
+        [Parameter(Mandatory = $True)]
+        [KraneProject]$KraneProject,
+
+        [Parameter(Mandatory = $False)]
+        [ItemFileType]$Type,
+
+        [Parameter(Mandatory = $False)]
+        [String]$Name,
+
+        [Parameter(Mandatory = $False)]
+        [LocationType]$Location = [LocationType]::Module
+    )
+    
+    switch($Type){
+        "Class" {
+            $Template = $KraneProject.GetTemplate("Class",$Location)
+        }
+        "Function" {
+            $Template = $KraneProject.GetTemplate("PublicFunction",$Location)
+        }
+        Default {
+            $Template = $KraneProject.GetTemplate()
+        }
+    }
+
+    return $Template
+
 }
