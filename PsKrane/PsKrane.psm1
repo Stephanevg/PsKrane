@@ -486,7 +486,7 @@ Class KraneModule : KraneProject {
         return $this.Templates.GetTemplate()
     }
 
-    [KraneTemplate] GetTemplate([String]$Type) {
+    [KraneTemplate] GetTemplate([ItemFileType]$Type) {
         #Retrieve specific template by type
         
         $Template = $this.Templates | Where-Object { $_.Type -eq $Type }
@@ -498,7 +498,7 @@ Class KraneModule : KraneProject {
 
     }
 
-    [KraneTemplate[]] GetTemplate([String]$Type, [String]$Location) {
+    [KraneTemplate[]] GetTemplate([ItemFileType]$Type, [LocationType]$Location) {
         #Retrieves specific template by type and location.
 
         $Template = $this.Templates.GetTemplate($Type, $Location)
@@ -509,6 +509,17 @@ Class KraneModule : KraneProject {
         Return $Template
 
     }
+
+    [KraneTemplate[]] GetTemplate([LocationType]$Location) {
+        #Retrieves specific template by type and location.
+
+        $Template = $this.Templates.GetTemplate($Location)
+
+        Return $Template
+
+    }
+
+
 }
 
 Class ModuleObfuscator {
@@ -1392,6 +1403,13 @@ Class KraneTemplateCollection {
         Return $Template
     }
     
+    [KraneTemplate] GetTemplate([LocationType]$Location) {
+        Write-Verbose "[KraneTemplateCollection] Getting template of by location -> $Location"
+        $Template = $this.Templates | Where-Object { $_.Location -eq $Location }
+        
+        Return $Template
+    }
+
     [KraneTemplate] GetTemplate([String]$Type, [LocationType]$Location) {
         Write-Verbose "[KraneTemplateCollection] Getting template of type $Type and location $Location"
         $Template = $this.Templates | Where-Object { $_.Type -eq $Type -and $_.Location -eq $Location }
@@ -1513,27 +1531,38 @@ function Get-KraneTemplate {
         [KraneProject]$KraneProject,
 
         [Parameter(Mandatory = $False)]
-        [ItemFileType]$Type,
-
-        [Parameter(Mandatory = $False)]
         [String]$Name,
 
         [Parameter(Mandatory = $False)]
-        [LocationType]$Location = [LocationType]::Module
+        [ItemFileType]$Type,
+
+        [Parameter(Mandatory = $False)]
+        [LocationType]$Location
     )
-    
-    switch($Type){
-        "Class" {
-            $Template = $KraneProject.GetTemplate("Class",$Location)
-        }
-        "Function" {
-            $Template = $KraneProject.GetTemplate("PublicFunction",$Location)
-        }
-        Default {
-            $Template = $KraneProject.GetTemplate()
-        }
+    write-verbose "[Get-KraneTemplate] Start of function"
+
+    $Template = $KraneProject.GetTemplate()
+
+
+    if($Name){
+        $Template = $Template | Where-Object { $_.Name -eq $Name }
     }
 
+    if($Type){
+        $Template = $Template | Where-Object { $_.Type -eq $Type }
+    }
+
+    if($Location){
+        $Template = $Template | Where-Object { $_.Location -eq $Location }
+    }
+
+    if (-not $Template) {
+        #No existing templates found. This should never happen
+        write-verbose "[Get-KraneTemplate] No templates found"
+        return $null
+    }
+
+    write-verbose "[Get-KraneTemplate] End of function"
     return $Template
 
 }
