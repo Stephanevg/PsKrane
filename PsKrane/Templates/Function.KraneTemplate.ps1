@@ -1,11 +1,12 @@
 function ###FunctionName### {
 <#
 .SYNOPSIS
-    A short one-line action-based description, e.g. 'Tests if a function is valid'
+    ###FunctionName### helps to....
 .DESCRIPTION
     A longer description of the function, its purpose, common use cases, etc.
 .NOTES
-    Generated with love using PsKrane
+    ChangeLog:
+        v0.0.1: Generated with love using PsKrane
 .LINK
     https://github.com/Stephanevg/PsKrane
 .EXAMPLE
