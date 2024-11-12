@@ -1058,7 +1058,6 @@ Function New-KraneProject {
         Creates a new Krane project
     .DESCRIPTION
         Will create a base .krane.json project file. The project can be either a module or a script.
-        Use -Force to create the base structure of the project.
     .NOTES
         Author: Stéphane vg
     .LINK
@@ -1082,8 +1081,6 @@ Function New-KraneProject {
 
     .EXAMPLE
         New-KraneProject -Type Module -Path C:\Users\Stephane\Code\KraneTest\plop -Name "Plop"
-
-        When using force, it will create the base structure of the project.
 
         C:\USERS\STEPHANE\CODE\KRANETEST\PLOP
         │   .krane.json

@@ -38,4 +38,8 @@ Describe "New-KraneProject" {
             $NewProject.ProjectUri | Should -Be $null
         }
     }
+
+    Context "new project of type script with valid parameters" {
+        #Not implemented yet
+    }
 }
