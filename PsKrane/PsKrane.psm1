@@ -498,7 +498,7 @@ Class KraneModule : KraneProject {
 
     }
 
-    [KraneTemplate[]] GetTemplate([ItemFileType]$Type, [LocationType]$Location) {
+    [KraneTemplate[]] GetTemplate([String]$Type, [LocationType]$Location) {
         #Retrieves specific template by type and location.
 
         $Template = $this.Templates.GetTemplate($Type, $Location)
