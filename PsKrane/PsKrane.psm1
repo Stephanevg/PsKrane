@@ -1081,7 +1081,7 @@ Function New-KraneProject {
         Root           : C:\Users\Stephane\Code\KraneTest\wip
 
     .EXAMPLE
-        New-KraneProject -Type Module -Path C:\Users\Stephane\Code\KraneTest\plop -Name "Plop" -Force
+        New-KraneProject -Type Module -Path C:\Users\Stephane\Code\KraneTest\plop -Name "Plop"
 
         When using force, it will create the base structure of the project.
 
@@ -1101,8 +1101,6 @@ Function New-KraneProject {
             Name of the project
     .PARAMETER Path
             Root folder of the project
-    .PARAMETER Force    
-            Switch to create the base structure of the project
     #>
     
     [cmdletBinding()]

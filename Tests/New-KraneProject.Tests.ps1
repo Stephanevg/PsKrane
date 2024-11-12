@@ -5,7 +5,7 @@ Describe "New-KraneProject" {
             $type = 'Module'
             $name = 'TestProject'
             $path = $TestDrive
-       
+            
             # Act
             $result = New-KraneProject -Type $type -Name $name -Path $path
         }
