@@ -2,29 +2,40 @@ Describe "New-KraneProject" {
     Context "new project of type module with valid parameters" {
         BeforeAll {
             # Arrange
-            $type = 'Module'
-            $name = 'TestProject'
-            $path = $TestDrive
+            $ProjectType = 'Module'
+            $ProjectName = 'TestProject'
+            $ProjectPath = $TestDrive
+
             
             # Act
-            $result = New-KraneProject -Type $type -Name $name -Path $path
+            $NewProject = New-KraneProject -Type $ProjectType -Name $ProjectName -Path $ProjectPath
         }
 
         It "KraneProject should not be null " {
-            # Assert
-            $result | Should -Not -BeNullOrEmpty
+            $NewProject | Should -Not -BeNullOrEmpty
         }
         It "KraneProject module name should correct" {
-            $result.ModuleName | Should -Be $name
+            $NewProject.ModuleName | Should -Be $ProjectName
         }
         It "KraneProject root path should be correct" {
-            $result.Root | Should -Be "$($path)\$($name)"
+            $NewProject.Root | Should -Be "$($ProjectPath)\$($ProjectName)"
         }
         It "KraneProject type should be correct" {
-            $result.ProjectType | Should -Be $type
+            $NewProject.ProjectType | Should -Be $ProjectType
         }
         It "KraneProject file should exist" {
-            (Test-Path $result.KraneFile.Path) | Should -Be $True
+            (Test-Path $NewProject.KraneFile.Path) | Should -Be $True
+        }
+        It "KraneProject file path should be correct" {
+            $NewProject.KraneFile.Path.FullName | Should -Be "$($ProjectPath)\$($ProjectName)\.krane.json"
+        }
+
+        It "KraneProject description should be correct" {
+            $NewProject.Description | Should -Be $null
+        }
+
+        It "KraneProject project uri should be correct" {
+            $NewProject.ProjectUri | Should -Be $null
         }
     }
 }
