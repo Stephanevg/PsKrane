@@ -8,16 +8,17 @@ Describe "New-KraneNuspecFile" {
 
             # Act
             $NewProject = New-KraneProject -Type $ProjectType -Name $ProjectName -Path $ProjectPath
+            Invoke-KraneBuild -KraneProject $NewProject
             New-KraneNuspecFile -KraneModule $NewProject
             $NuspecFile = Join-Path -Path $NewProject.Outputs.FullName -ChildPath "Module\$($NewProject.ModuleName).nuspec"
-            $NugetPackage = Join-Path -Path $NewProject.Outputs.FullName -ChildPath "Nuget\$($NewProject.ModuleName).$($NewProject.ProjectVersion).nuspec"
+            $NugetPackage = Join-Path -Path $NewProject.Outputs.FullName -ChildPath "Nuget\$($NewProject.ModuleName).$($NewProject.ProjectVersion).nupkg"
         }
 
         It "Nuspec file should be created" {
-            $NuspecFile.Exists | Should -BeTrue
+            (test-path -Path $NuspecFile) | Should -Be $true
         }
         It "Nuspec package should be ceated" {
-            $NugetPackage.Exists | Should -BeTrue
+            (test-path -Path $NugetPackage) | Should -Be $true
         }
     }
 }
