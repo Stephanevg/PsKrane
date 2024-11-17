@@ -1,0 +1,14 @@
+name: Test PowerShell on Ubuntu
+on: push
+
+jobs:
+  pester-test:
+    name: Pester test
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Invoke Pester Tests
+        shell: pwsh
+        run: |
+          InvokeTests.ps1
