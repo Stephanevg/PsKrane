@@ -11,4 +11,6 @@ jobs:
       - name: Invoke Pester Tests
         shell: pwsh
         run: |
-          InvokeTests.ps1
+          $pwd
+          dir
+          & .\InvokeTests.ps1
