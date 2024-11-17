@@ -6,7 +6,6 @@
             "type": "shell",
             "command": "pwsh",
             "args": [
-                "-NoProfile",
                 "-Command",
                 "Invoke-Pester -Path 'Tests' -Output Detailed"
             ],
