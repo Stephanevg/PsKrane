@@ -37,6 +37,9 @@ Describe "New-KraneProject" {
         It "KraneProject project uri should be correct" {
             $NewProject.ProjectUri | Should -Be $null
         }
+        It "KraneProject templates should not be empty" {
+            $NewProject.Templates.Templates | Should -Not -BeNullOrEmpty
+        }
     }
 
     Context "new project of type script with valid parameters" {
