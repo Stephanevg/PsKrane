@@ -1,0 +1,19 @@
+name: Test PowerShell on Ubuntu
+on: push
+
+jobs:
+  pester-test:
+    name: Pester test
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Invoke Pester Tests
+        shell: pwsh
+        run: |
+          [System.Io.FileInfo]$PsRoot = $PSScriptRoot
+          #Grabbing main folder path
+          $ProjectRoot = ($PsRoot.Directory).Parent
+          $TestsFolder = Join-Path -Path $ProjectRoot.FullName -ChildPath "Tests"
+          write-host "Invoking tests in $TestsFolder"
+          invoke-pester $TestsFolder #-OutputFile $ProjectRoot\testresults.xml -OutputFormat NUnitXml -PassThru -Show Summary
