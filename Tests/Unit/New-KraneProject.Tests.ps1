@@ -7,6 +7,29 @@ Import-Module  (Join-Path -Path $psroot.Parent -ChildPath "$($psroot.Parent.Name
 
 InModuleScope -ModuleName $psroot.Parent.Name -ScriptBlock {
     Describe "New-KraneProject" {
+        Context "Non-Functional requirements" {
+            BeforeAll {
+            $command = Get-Command -Name New-KraneProject
+            }
+            It "Has a parameter called 'Type'" {
+                $command.Parameters.ContainsKey('Type') | Should -Be $True
+            }
+            It "Parameter 'Type' should be of type ProjectType" {
+                $command.Parameters.Type.ParameterType.Name | Should -Be 'ProjectType'
+            }
+            It "Has a parameter called 'Name'" {
+                $command.Parameters.ContainsKey('Name') | Should -Be $True
+            }
+            It "Parameter 'Name' should be of type String" {
+                $command.Parameters.Name.ParameterType.Name | Should -Be 'String'
+            }
+            It "Has a parameter called 'Path'" {
+                $command.Parameters.ContainsKey('Path') | Should -Be $True
+            }
+            It "Parameter 'Path' should be of type DirectoryInfo" {
+                $command.Parameters.Path.ParameterType.Name | Should -Be 'DirectoryInfo'
+            }
+        }
         Context "new project of type module with valid parameters" {
             BeforeAll {
                 # Arrange
@@ -24,6 +47,9 @@ InModuleScope -ModuleName $psroot.Parent.Name -ScriptBlock {
             It "KraneProject module name should correct" {
                 $NewProject.ModuleName | Should -Be $ProjectName
             }
+            It "KraneProject tags should be correct" {
+                $NewProject.Tags | Should -Be $null
+            }
             It "KraneProject root path should be correct" {
                 $NewProject.Root | Should -Be "$($ProjectPath)\$($ProjectName)"
             }
@@ -35,14 +61,6 @@ InModuleScope -ModuleName $psroot.Parent.Name -ScriptBlock {
             }
             It "KraneProject file path should be correct" {
                 $NewProject.KraneFile.Path.FullName | Should -Be "$($ProjectPath)\$($ProjectName)\.krane.json"
-            }
-    
-            It "KraneProject description should be correct" {
-                $NewProject.Description | Should -Be $null
-            }
-    
-            It "KraneProject project uri should be correct" {
-                $NewProject.ProjectUri | Should -Be $null
             }
             It "KraneProject templates should not be empty" {
                 $NewProject.Templates.Templates | Should -Not -BeNullOrEmpty
