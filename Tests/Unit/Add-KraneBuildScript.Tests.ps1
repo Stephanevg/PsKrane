@@ -1,4 +1,3 @@
-
 # Generated with love using PsKrane
 
 [System.IO.DirectoryInfo]$psroot = $PSScriptRoot
@@ -7,8 +6,8 @@ Get-Module -Name $psroot.Parent.Parent.Name | Remove-Module -Force
 Import-Module  (Join-Path -Path $psroot.Parent.Parent -ChildPath "$($psroot.Parent.Parent.Name)/$($psroot.Parent.Parent.Name).psm1") -Force
 
 InModuleScope -ModuleName $psroot.Parent.Parent.Name -ScriptBlock {
-    Describe "Get-KraneProjectVersion" {
-        Context "Get-KraneProjectVersion with valid parameters" {
+    Describe "New-KraneBuild" {
+        Context "New-KraneBuild with valid parameters" {
             BeforeAll {
                 # Arrange
                 $ProjectType = 'Module'
@@ -16,17 +15,17 @@ InModuleScope -ModuleName $psroot.Parent.Parent.Name -ScriptBlock {
                 $ProjectPath = $TestDrive
                 $ProjectVersion = '0.0.1'
 
-            
                 # Act
                 $NewProject = New-KraneProject -Type $ProjectType -Name $ProjectName -Path $ProjectPath
-                $Version = Get-KraneProjectVersion -KraneProject $NewProject
+                Add-KraneBuildScript -KraneProject $NewProject
             }
 
-            It "Version should not be null " {
-                $Version | Should -Not -BeNullOrEmpty
+            It "Add build script by path should not throw" {
+                { Add-KraneBuildScript -Path "$($ProjectPath)\$($ProjectName)\Build" } | Should -Not -Throw
             }
-            It "Version should be correct" {
-                $Version | Should -Be $ProjectVersion
+
+            It "Add build script by KraneProject should not throw" {
+                { Add-KraneBuildScript -KraneProject $NewProject } | Should -Not -Throw
             }
         }
     }

@@ -2,10 +2,10 @@
 
 [System.IO.DirectoryInfo]$psroot = $PSScriptRoot
 
-Get-Module -Name $psroot.Parent.Name | Remove-Module -Force
-Import-Module  (Join-Path -Path $psroot.Parent -ChildPath "$($psroot.Parent.Name)/$($psroot.Parent.Name).psm1") -Force
+Get-Module -Name $psroot.Parent.Parent.Name | Remove-Module -Force
+Import-Module  (Join-Path -Path $psroot.Parent.Parent -ChildPath "$($psroot.Parent.Parent.Name)/$($psroot.Parent.Parent.Name).psm1") -Force
 
-InModuleScope -ModuleName $psroot.Parent.Name -ScriptBlock {
+InModuleScope -ModuleName $psroot.Parent.Parent.Name -ScriptBlock {
     Describe "New-KraneProject" {
         Context "Non-Functional requirements" {
             BeforeAll {
