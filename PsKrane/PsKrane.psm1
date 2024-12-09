@@ -1038,11 +1038,34 @@ Class PesterTestHelper : TestHelper {
 Function Get-KraneProjectVersion {
     <#
     .SYNOPSIS
-        Retrieves the version of the Krane project
+    Retrieves the project version from a KraneProject object.
+
     .DESCRIPTION
-        Retrieves the version of the Krane project
+    The Get-KraneProjectVersion function extracts and returns the ProjectVersion value from the KraneFile property of a given KraneProject object.
+
+    .PARAMETER KraneProject
+    Specifies the KraneProject object from which to retrieve the project version. This parameter is mandatory.
+
+    .EXAMPLE
+    $project = Get-KraneProject
+    Get-KraneProjectVersion -KraneProject $project
+
+    This example retrieves the project version from a KraneProject object.
+
+    .INPUTS
+    KraneProject. You can pipe a KraneProject object to this function.
+
+    .OUTPUTS
+    System.String. This function returns the project version as a string.
+
     .NOTES
+    Ensure that the KraneProject object has a valid KraneFile property with a ProjectVersion key.
+
+    .LINK
+    Get-KraneProject
+
     #>
+
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory = $True)]
@@ -1168,6 +1191,39 @@ Function New-KraneNuspecFile {
 }
 
 Function Get-KraneProject {
+    <#
+    .SYNOPSIS
+    Retrieves a KraneProject object from a specified root folder or the current location.
+
+    .DESCRIPTION
+    The Get-KraneProject function retrieves a KraneProject object by locating and parsing the .krane.json file in the specified root folder or the current location. If no root folder is specified, it uses the current location.
+
+    .PARAMETER Root
+    Specifies the root folder of the project. If not specified, it assumes the current location is the root of the project.
+
+    .EXAMPLE
+    Get-KraneProject
+
+    This example retrieves the KraneProject object from the current location.
+
+    .EXAMPLE
+    Get-KraneProject -Root "C:\Projects\MyKraneProject"
+
+    This example retrieves the KraneProject object from the specified root folder.
+
+    .INPUTS
+    None. You cannot pipe input to this function.
+
+    .OUTPUTS
+    KraneProject. This function returns a KraneProject object.
+
+    .NOTES
+    If the .krane.json file is not found in the specified root folder, the function will throw an error.
+
+    .LINK
+    New-KraneProject
+    #>
+
     [CmdletBinding()]
     [OutputType([KraneProject])]
     Param(
@@ -1265,6 +1321,36 @@ Function New-KraneTestScript {
 }
 
 Function Invoke-KraneBuild {
+    <#
+    .SYNOPSIS
+    Executes the build process for a KraneProject.
+
+    .DESCRIPTION
+    The Invoke-KraneBuild function initiates the build process for a specified KraneProject by executing the Build.Krane.ps1 script located in the project's build directory.
+
+    .PARAMETER KraneProject
+    Specifies the KraneProject object for which to run the build process. This parameter is mandatory.
+
+    .EXAMPLE
+    $project = Get-KraneProject
+    Invoke-KraneBuild -KraneProject $project
+
+    This example retrieves a KraneProject object and then invokes the build process for that project.
+
+    .INPUTS
+    KraneProject. You can pipe a KraneProject object to this function.
+
+    .OUTPUTS
+    None. This function does not generate any output.
+
+    .NOTES
+    The function will throw an error if the Build.Krane.ps1 file is not found in the project's build directory.
+
+    .LINK
+    Get-KraneProject
+
+    #>
+
     [CmdletBinding()]
     Param(
         [KraneProject]$KraneProject
@@ -1319,6 +1405,52 @@ Function New-KraneNugetFile {
 }
 
 Function Invoke-KraneGitCommand {
+    <#
+    .SYNOPSIS
+    Executes Git commands for a KraneProject.
+
+    .DESCRIPTION
+    The Invoke-KraneGitCommand function performs specific Git actions on a KraneProject, such as tagging, pushing tags, or pushing with tags.
+
+    .PARAMETER KraneProject
+    Specifies the KraneProject object on which to perform the Git action. This parameter is mandatory.
+
+    .PARAMETER GitAction
+    Specifies the Git action to perform. Valid values are "tag", "PushTags", and "PushWithTags". This parameter is mandatory.
+
+    .PARAMETER Argument
+    Specifies an optional argument for the Git action. When tagging, if no argument is provided, it defaults to "v{ProjectVersion}".
+
+    .EXAMPLE
+    $project = Get-KraneProject
+    Invoke-KraneGitCommand -KraneProject $project -GitAction "tag"
+
+    This example tags the project with the default version tag.
+
+    .EXAMPLE
+    Invoke-KraneGitCommand -KraneProject $project -GitAction "tag" -Argument "release-1.0"
+
+    This example tags the project with a custom tag "release-1.0".
+
+    .EXAMPLE
+    Invoke-KraneGitCommand -KraneProject $project -GitAction "PushWithTags"
+
+    This example pushes the project changes along with all tags.
+
+    .INPUTS
+    KraneProject. You can pipe a KraneProject object to this function.
+
+    .OUTPUTS
+    None. This function does not generate any output.
+
+    .NOTES
+    This function requires a GitHelper class to be available in the current session.
+
+    .LINK
+    Get-KraneProject
+
+    #>
+
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory = $True)]
@@ -1356,6 +1488,44 @@ Function Invoke-KraneGitCommand {
 }
 
 Function Invoke-KraneTestScripts {
+    <#
+    .SYNOPSIS
+    Executes test scripts for a KraneProject using Pester.
+
+    .DESCRIPTION
+    The Invoke-KraneTestScripts function runs test scripts associated with a KraneProject using the Pester testing framework. It allows specifying a version for the tests and returns the test results.
+
+    .PARAMETER KraneProject
+    Specifies the KraneProject object containing the tests to be run. This parameter is mandatory.
+
+    .PARAMETER Version
+    Specifies the version of tests to run. If not provided, it defaults to "Latest". This parameter is optional.
+
+    .EXAMPLE
+    $project = Get-KraneProject
+    Invoke-KraneTestScripts -KraneProject $project
+
+    This example runs the latest version of tests for the specified KraneProject.
+
+    .EXAMPLE
+    Invoke-KraneTestScripts -KraneProject $project -Version "1.0"
+
+    This example runs version 1.0 of the tests for the specified KraneProject.
+
+    .INPUTS
+    KraneProject. You can pipe a KraneProject object to this function.
+
+    .OUTPUTS
+    PesterTestHelper. This function returns a PesterTestHelper object containing the test results.
+
+    .NOTES
+    This function requires a PesterTestHelper class to be available in the current session.
+
+    .LINK
+    Get-KraneProject
+
+    #>
+
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory = $True)]
