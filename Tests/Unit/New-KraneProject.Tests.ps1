@@ -1,9 +1,12 @@
 # Generated with love using PsKrane
 
 [System.IO.DirectoryInfo]$psroot = $PSScriptRoot
+$ModuleName = $psroot.Parent.Parent.Name
+[System.Io.DirectoryInfo] $ModuleRoot = $psroot.Parent.Parent #après tu reference $ModuleRoot.FullName
+$ModuleFileName = "$ModuleName" + ".psd1"
+[System.Io.Fileinfo] $ModuleFullPath = [System.IO.Path]::Combine($ModuleRoot.FullName , $ModuleName, $ModuleFileName) #Apres tu utilise $ModuleFullPath.FullName pour le path en full vers le psd1 pour les imports
 
-Get-Module -Name $psroot.Parent.Parent.Name | Remove-Module -Force
-Import-Module  (Join-Path -Path $psroot.Parent.Parent -ChildPath "$($psroot.Parent.Parent.Name)/$($psroot.Parent.Parent.Name).psm1") -Force
+Import-Module $ModuleFullPath.FullName -Force
 
 InModuleScope -ModuleName $psroot.Parent.Parent.Name -ScriptBlock {
     Describe "New-KraneProject" {
@@ -36,6 +39,14 @@ InModuleScope -ModuleName $psroot.Parent.Parent.Name -ScriptBlock {
                 $ProjectType = 'Module'
                 $ProjectName = 'TestProject'
                 $ProjectPath = $TestDrive
+
+                if ($IsWindows) {
+                    $ExpectedRootPath = "$($ProjectPath)\$($ProjectName)"
+                    $ExpectedKraneProjetFilePath = "$($ProjectPath)\$($ProjectName)\.krane.json"
+                } else {
+                    $ExpectedRootPath = "$($ProjectPath)/$($ProjectName)"
+                    $ExpectedKraneProjetFilePath = "$($ProjectPath)/$($ProjectName)/.krane.json"
+                }
                 
                 # Act
                 $NewProject = New-KraneProject -Type $ProjectType -Name $ProjectName -Path $ProjectPath
@@ -48,10 +59,10 @@ InModuleScope -ModuleName $psroot.Parent.Parent.Name -ScriptBlock {
                 $NewProject.ModuleName | Should -Be $ProjectName
             }
             It "KraneProject tags should be correct" {
-                $NewProject.Tags | Should -Be $null
+                $NewProject.Tags | Should -Be @('PSEdition_Core', 'PSEdition_Desktop')
             }
             It "KraneProject root path should be correct" {
-                $NewProject.Root | Should -Be "$($ProjectPath)\$($ProjectName)"
+                $NewProject.Root | Should -Be $ExpectedRootPath
             }
             It "KraneProject type should be correct" {
                 $NewProject.ProjectType | Should -Be $ProjectType
@@ -60,7 +71,7 @@ InModuleScope -ModuleName $psroot.Parent.Parent.Name -ScriptBlock {
                 (Test-Path $NewProject.KraneFile.Path) | Should -Be $True
             }
             It "KraneProject file path should be correct" {
-                $NewProject.KraneFile.Path.FullName | Should -Be "$($ProjectPath)\$($ProjectName)\.krane.json"
+                $NewProject.KraneFile.Path.FullName | Should -Be $ExpectedKraneProjetFilePath
             }
             It "KraneProject templates should not be empty" {
                 $NewProject.Templates.Templates | Should -Not -BeNullOrEmpty
